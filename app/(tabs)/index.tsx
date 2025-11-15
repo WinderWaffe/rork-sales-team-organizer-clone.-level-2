@@ -3,7 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AlertCircle, ArrowLeft, Check, ChevronRight, Crown, Flag, TrendingUp, UserCheck } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useSalesTeam } from '@/contexts/sales-team-context';
 import { useUser } from '@/contexts/user-context';
@@ -93,23 +93,21 @@ export default function DashboardScreen() {
     getRepsForLeader,
     calculateLeaderDailyContactPercentage,
     calculateLeaderWeeklyContactPercentage,
-    isLoading: isSalesDataLoading,
   } = useSalesTeam();
-  const { currentUserId, isAdmin, isLeader, leaders, isLoading: isUserLoading } = useUser();
+  const { currentUser, isAdmin, isLeader, leaders } = useUser();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [selectedLeaderId, setSelectedLeaderId] = useState<string | null>(null);
-  const isBootstrapping = isUserLoading || isSalesDataLoading || !currentUserId;
 
   const viewingLeaderId = useMemo(() => {
     if (isAdmin) {
       return selectedLeaderId;
     }
-    if (isLeader && currentUserId) {
-      return currentUserId;
+    if (isLeader) {
+      return currentUser.id;
     }
     return null;
-  }, [currentUserId, isAdmin, isLeader, selectedLeaderId]);
+  }, [currentUser.id, isAdmin, isLeader, selectedLeaderId]);
 
   const isAdminOverview = isAdmin && !viewingLeaderId;
 
@@ -216,15 +214,6 @@ export default function DashboardScreen() {
   }, [displayReps, isAdminOverview]);
 
   const totalDisplayReps = displayReps.length;
-
-  if (isBootstrapping) {
-    return (
-      <View style={styles.loadingContainer} testID="dashboard-loading-state">
-        <ActivityIndicator size="large" color="#0EA5E9" />
-        <Text style={styles.loadingText}>Preparing your dashboard…</Text>
-      </View>
-    );
-  }
 
   const handleMarkContacted = async (repId: string, currentContactedToday: boolean) => {
     setError(null);
@@ -558,18 +547,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F9FAFB',
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    color: '#0F172A',
   },
   scrollContent: {
     padding: 16,

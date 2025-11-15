@@ -74,8 +74,7 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
   const [lastResetDate, setLastResetDate] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const debounceTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
-  const { currentUserId, isAdmin, isAuthenticated } = useUser();
-  const activeUserId = currentUserId;
+  const { currentUser, isAdmin } = useUser();
 
   const repsQuery = useQuery({
     queryKey: ['sales-reps'],
@@ -268,10 +267,6 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
   }, [allReps, lastResetDate]);
 
   const withAuthorizedRepUpdate = useCallback((repId: string, apply: (previous: SalesRep[], target: SalesRep) => SalesRep[]) => {
-    if (!isAuthenticated || !activeUserId) {
-      console.warn('[SalesTeam] Attempted rep update without authentication');
-      throw new Error('Authentication required');
-    }
     let nextState: SalesRep[] | null = null;
     let error: Error | null = null;
 
@@ -281,7 +276,7 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
         error = new Error('Sales rep not found');
         return previous;
       }
-      if (!isAdmin && target.belongsToLeader !== activeUserId) {
+      if (!isAdmin && target.belongsToLeader !== currentUser.id) {
         error = new Error('You do not have permission to modify this sales rep');
         return previous;
       }
@@ -297,14 +292,11 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
     if (nextState) {
       syncReps(nextState);
     }
-  }, [activeUserId, isAdmin, isAuthenticated, syncReps]);
+  }, [currentUser.id, isAdmin, syncReps]);
 
   const addRep = useCallback((repData: AddRepInput) => {
-    if (!isAuthenticated || (!isAdmin && !activeUserId)) {
-      throw new Error('Authentication required');
-    }
     const now = new Date().toISOString();
-    const ownerId = isAdmin ? repData.belongsToLeader ?? null : activeUserId;
+    const ownerId = isAdmin ? repData.belongsToLeader ?? null : currentUser.id;
 
     const newRep: SalesRep = {
       id: Date.now().toString(),
@@ -328,7 +320,7 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
       syncReps(updated);
       return updated;
     });
-  }, [activeUserId, isAdmin, isAuthenticated, syncReps]);
+  }, [currentUser.id, isAdmin, syncReps]);
 
   const updateRep = useCallback((id: string, updates: Partial<SalesRep>) => {
     withAuthorizedRepUpdate(id, (previous) => {
@@ -563,19 +555,16 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
   }, [syncTodos, withAuthorizedRepUpdate]);
 
   const addContactLog = useCallback((repId: string, payload?: { leaderId?: string; timestamp?: string }) => {
-    if (!isAuthenticated || !activeUserId) {
-      throw new Error('Authentication required');
-    }
     const rep = allReps.find((item) => item.id === repId);
     if (!rep) {
       throw new Error('Sales rep not found');
     }
-    const resolvedLeaderId = payload?.leaderId ?? activeUserId;
+    const resolvedLeaderId = payload?.leaderId ?? currentUser.id;
     if (!isAdmin) {
-      if (resolvedLeaderId !== activeUserId) {
+      if (resolvedLeaderId !== currentUser.id) {
         throw new Error('Leaders can only log their own activity');
       }
-      if (rep.belongsToLeader !== activeUserId) {
+      if (rep.belongsToLeader !== currentUser.id) {
         throw new Error('You do not have permission to log activity for this sales rep');
       }
     }
@@ -594,18 +583,15 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
       syncContactLogs(updated);
       return updated;
     });
-  }, [activeUserId, allReps, isAdmin, isAuthenticated, syncContactLogs]);
+  }, [allReps, currentUser.id, isAdmin, syncContactLogs]);
 
   const deleteContactLog = useCallback((logId: string) => {
-    if (!isAuthenticated || !activeUserId) {
-      throw new Error('Authentication required');
-    }
     const target = contactLogs.find((log) => log.id === logId);
     if (!target) {
       console.warn('[SalesTeam] Attempted to delete missing contact log', { logId });
       return;
     }
-    if (!isAdmin && target.leaderId !== activeUserId) {
+    if (!isAdmin && target.leaderId !== currentUser.id) {
       console.warn('[SalesTeam] Unauthorized contact log delete attempt', { logId });
       throw new Error('You do not have permission to remove this contact log');
     }
@@ -616,17 +602,14 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
       console.log('[SalesTeam] Removed contact log', { logId });
       return updated;
     });
-  }, [activeUserId, contactLogs, isAdmin, isAuthenticated, syncContactLogs]);
+  }, [contactLogs, currentUser.id, isAdmin, syncContactLogs]);
 
   const accessibleReps = useMemo(() => {
-    if (!isAuthenticated || !activeUserId) {
-      return [];
-    }
     if (isAdmin) {
       return allReps;
     }
-    return allReps.filter((rep) => rep.belongsToLeader === activeUserId);
-  }, [activeUserId, allReps, isAdmin, isAuthenticated]);
+    return allReps.filter((rep) => rep.belongsToLeader === currentUser.id);
+  }, [allReps, currentUser.id, isAdmin]);
 
   const accessibleTodos = useMemo(() => {
     const allowedIds = new Set(accessibleReps.map((rep) => rep.id));
@@ -650,14 +633,11 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
     if (!leaderId) {
       return [];
     }
-    if (!isAuthenticated || !activeUserId) {
-      throw new Error('Authentication required');
-    }
-    if (!isAdmin && leaderId !== activeUserId) {
+    if (!isAdmin && leaderId !== currentUser.id) {
       throw new Error('You do not have permission to view this leader');
     }
     return allReps.filter((rep) => rep.belongsToLeader === leaderId);
-  }, [activeUserId, allReps, isAdmin, isAuthenticated]);
+  }, [allReps, currentUser.id, isAdmin]);
 
   const getContactLogsForLeader = useCallback((leaderId: string) => {
     const repsForLeader = getRepsForLeader(leaderId);

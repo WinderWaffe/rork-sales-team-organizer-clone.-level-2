@@ -98,16 +98,17 @@ export default function DashboardScreen() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [selectedLeaderId, setSelectedLeaderId] = useState<string | null>(null);
+  const currentUserId = currentUser?.id ?? null;
 
   const viewingLeaderId = useMemo(() => {
     if (isAdmin) {
       return selectedLeaderId;
     }
-    if (isLeader) {
-      return currentUser.id;
+    if (isLeader && currentUserId) {
+      return currentUserId;
     }
     return null;
-  }, [currentUser.id, isAdmin, isLeader, selectedLeaderId]);
+  }, [currentUserId, isAdmin, isLeader, selectedLeaderId]);
 
   const isAdminOverview = isAdmin && !viewingLeaderId;
 

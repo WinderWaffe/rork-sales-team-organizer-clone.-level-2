@@ -95,12 +95,11 @@ export default function DashboardScreen() {
     calculateLeaderWeeklyContactPercentage,
     isLoading: isSalesDataLoading,
   } = useSalesTeam();
-  const { currentUser, isAdmin, isLeader, leaders, isLoading: isUserLoading } = useUser();
+  const { currentUserId, isAdmin, isLeader, leaders, isLoading: isUserLoading } = useUser();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [selectedLeaderId, setSelectedLeaderId] = useState<string | null>(null);
-  const currentUserId = currentUser?.id ?? null;
-  const isBootstrapping = isUserLoading || isSalesDataLoading || !currentUser;
+  const isBootstrapping = isUserLoading || isSalesDataLoading || !currentUserId;
 
   const viewingLeaderId = useMemo(() => {
     if (isAdmin) {

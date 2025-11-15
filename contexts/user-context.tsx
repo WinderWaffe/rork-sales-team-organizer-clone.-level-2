@@ -16,6 +16,7 @@ interface GoogleProfile {
 
 export interface UserContextValue {
   currentUser: AppUser | null;
+  currentUserId: string | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
   isLeader: boolean;
@@ -220,6 +221,7 @@ export const [UserProvider, useUser] = createContextHook<UserContextValue>(() =>
 
   return useMemo(() => ({
     currentUser,
+    currentUserId,
     isAuthenticated: currentUser !== null,
     isAdmin: currentUser?.role === 'admin',
     isLeader: currentUser?.role === 'leader',
@@ -230,5 +232,5 @@ export const [UserProvider, useUser] = createContextHook<UserContextValue>(() =>
     signInWithGoogle,
     signOut,
     updateUserRole,
-  }), [admins, currentUser, isLoading, leaders, signInWithGoogle, signOut, updateUserRole, users]);
+  }), [admins, currentUser, currentUserId, isLoading, leaders, signInWithGoogle, signOut, updateUserRole, users]);
 });

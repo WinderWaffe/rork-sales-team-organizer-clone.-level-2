@@ -74,8 +74,8 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
   const [lastResetDate, setLastResetDate] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const debounceTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
-  const { currentUser, isAdmin, isAuthenticated } = useUser();
-  const activeUserId = currentUser?.id ?? null;
+  const { currentUserId, isAdmin, isAuthenticated } = useUser();
+  const activeUserId = currentUserId;
 
   const repsQuery = useQuery({
     queryKey: ['sales-reps'],

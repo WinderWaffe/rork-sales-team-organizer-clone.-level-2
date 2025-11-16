@@ -10,6 +10,7 @@ import {
   useContactedToday,
   useSalesTeam,
 } from '@/contexts/sales-team-context';
+import { useUser } from '@/contexts/user-context';
 import { SalesRep } from '@/types/sales-rep';
 
 function ContactToggleButton({ rep, onPress }: { rep: SalesRep; onPress: (repId: string, currentContactedToday: boolean) => void }) {
@@ -88,7 +89,8 @@ function ContactToggleButton({ rep, onPress }: { rep: SalesRep; onPress: (repId:
 }
 
 export default function DashboardScreen() {
-  const { reps, toggleContactedStatus, calculateDailyContactPercentage, calculateWeeklyContactPercentage } = useSalesTeam();
+  const { isAdmin, leaders } = useUser();
+  const { reps, toggleContactedStatus, calculateDailyContactPercentage, calculateWeeklyContactPercentage, contactLogs } = useSalesTeam();
   const needsFollowUp = useNeedsFollowUp();
   const contactedToday = useContactedToday();
   const router = useRouter();
@@ -107,6 +109,10 @@ export default function DashboardScreen() {
     console.log('[Dashboard] Computed weekly contact percentage', { sanitized });
     return sanitized;
   }, [calculateWeeklyContactPercentage]);
+
+  if (isAdmin) {
+    return <AdminDashboardView leaders={leaders} allReps={reps} contactLogs={contactLogs} />;
+  }
 
   const formattedDailyPercentage = `${Math.round(dailyContactPercentage)}%`;
   const formattedWeeklyPercentage = `${Math.round(weeklyContactPercentage)}%`;
@@ -563,4 +569,226 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: 8,
   },
+  adminContainer: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+  },
+  adminScrollContent: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+  adminHeader: {
+    marginBottom: 24,
+  },
+  adminTitle: {
+    fontSize: 28,
+    fontWeight: '700' as const,
+    color: '#111827',
+    marginBottom: 8,
+  },
+  adminSubtitle: {
+    fontSize: 16,
+    color: '#6B7280',
+  },
+  leaderCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  leaderCardPressed: {
+    backgroundColor: '#F9FAFB',
+  },
+  leaderHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  leaderAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#E0F2FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  leaderAvatarText: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: '#0EA5E9',
+  },
+  leaderInfo: {
+    flex: 1,
+  },
+  leaderName: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    color: '#111827',
+    marginBottom: 4,
+  },
+  leaderRole: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  leaderStats: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  leaderStatBox: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 12,
+  },
+  leaderStatLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  leaderStatValue: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: '#111827',
+  },
+  leaderStatValueHighlight: {
+    color: '#10B981',
+  },
+  adminEmptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+    paddingHorizontal: 32,
+  },
+  adminEmptyTitle: {
+    fontSize: 20,
+    fontWeight: '600' as const,
+    color: '#111827',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  adminEmptyDescription: {
+    fontSize: 15,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 8,
+  },
 });
+
+interface AdminDashboardViewProps {
+  leaders: { id: string; name: string; role: 'leader' | 'admin' }[];
+  allReps: SalesRep[];
+  contactLogs: { id: string; repId: string; leaderId: string; timestamp: string }[];
+}
+
+function AdminDashboardView({ leaders, allReps, contactLogs }: AdminDashboardViewProps) {
+
+  const leaderStats = useMemo(() => {
+    return leaders.map((leader) => {
+      const leaderReps = allReps.filter((rep) => rep.leaderId === leader.id);
+      const totalReps = leaderReps.length;
+
+      const weekStart = new Date();
+      weekStart.setHours(0, 0, 0, 0);
+      weekStart.setDate(weekStart.getDate() - 6);
+
+      const contactedRepIds = new Set<string>();
+      for (const log of contactLogs) {
+        if (log.leaderId !== leader.id) {
+          continue;
+        }
+        const logTime = new Date(log.timestamp);
+        if (Number.isNaN(logTime.getTime())) {
+          continue;
+        }
+        if (logTime >= weekStart) {
+          contactedRepIds.add(log.repId);
+        }
+      }
+
+      const contactedThisWeek = contactedRepIds.size;
+
+      return {
+        leaderId: leader.id,
+        leaderName: leader.name,
+        totalReps,
+        contactedThisWeek,
+      };
+    });
+  }, [leaders, allReps, contactLogs]);
+
+  return (
+    <View style={styles.adminContainer}>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: 'Admin Dashboard',
+          headerStyle: {
+            backgroundColor: '#FFFFFF',
+          },
+          headerShadowVisible: false,
+        }}
+      />
+
+      <ScrollView contentContainerStyle={styles.adminScrollContent}>
+        <View style={styles.adminHeader}>
+          <Text style={styles.adminTitle}>Team Leaders</Text>
+          <Text style={styles.adminSubtitle}>
+            {leaders.length} {leaders.length === 1 ? 'leader' : 'leaders'} managing {allReps.length} {allReps.length === 1 ? 'rep' : 'reps'}
+          </Text>
+        </View>
+
+        {leaderStats.length === 0 ? (
+          <View style={styles.adminEmptyState}>
+            <UserCheck size={64} color="#D1D5DB" strokeWidth={1.5} />
+            <Text style={styles.adminEmptyTitle}>No Leaders Yet</Text>
+            <Text style={styles.adminEmptyDescription}>
+              Create leader accounts to manage your sales team
+            </Text>
+          </View>
+        ) : (
+          leaderStats.map((stat) => (
+            <Pressable
+              key={stat.leaderId}
+              style={({ pressed }) => [
+                styles.leaderCard,
+                pressed && styles.leaderCardPressed,
+              ]}
+              onPress={() => console.log('[AdminDashboard] Leader card pressed', stat.leaderId)}
+            >
+              <View style={styles.leaderHeader}>
+                <View style={styles.leaderAvatar}>
+                  <Text style={styles.leaderAvatarText}>
+                    {stat.leaderName.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.leaderInfo}>
+                  <Text style={styles.leaderName}>{stat.leaderName}</Text>
+                  <Text style={styles.leaderRole}>Team Leader</Text>
+                </View>
+              </View>
+
+              <View style={styles.leaderStats}>
+                <View style={styles.leaderStatBox}>
+                  <Text style={styles.leaderStatLabel}>Total Reps</Text>
+                  <Text style={styles.leaderStatValue}>{stat.totalReps}</Text>
+                </View>
+                <View style={styles.leaderStatBox}>
+                  <Text style={styles.leaderStatLabel}>Contacted This Week</Text>
+                  <Text style={[styles.leaderStatValue, styles.leaderStatValueHighlight]}>
+                    {stat.contactedThisWeek}
+                  </Text>
+                </View>
+              </View>
+            </Pressable>
+          ))
+        )}
+      </ScrollView>
+    </View>
+  );
+}

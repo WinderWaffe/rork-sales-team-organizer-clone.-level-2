@@ -810,7 +810,8 @@ function AdminDashboardView() {
   const [editUserModalVisible, setEditUserModalVisible] = useState(false);
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
-  const [editingUser, setEditingUser] = useState<{ id: string; name: string; email?: string; role: 'leader' | 'admin' } | null>(null);
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [editingUser, setEditingUser] = useState<{ id: string; name: string; email: string; role: 'leader' | 'admin' } | null>(null);
 
   const leaderStats = useMemo(() => {
     return leaders.map((leader) => {
@@ -963,7 +964,7 @@ function AdminDashboardView() {
           >
             <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
               <View style={styles.modalHandle} />
-              <Text style={styles.modalTitle}>Create New User</Text>
+              <Text style={styles.modalTitle}>Add Leader</Text>
               <Text style={styles.fieldLabel}>Name *</Text>
               <TextInput
                 style={styles.input}
@@ -972,14 +973,24 @@ function AdminDashboardView() {
                 value={newUserName}
                 onChangeText={setNewUserName}
               />
-              <Text style={styles.fieldLabel}>Email</Text>
+              <Text style={styles.fieldLabel}>Email *</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Enter email (optional)"
+                placeholder="Enter email"
                 placeholderTextColor="#9CA3AF"
                 value={newUserEmail}
                 onChangeText={setNewUserEmail}
                 keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <Text style={styles.fieldLabel}>Temporary Password *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter temporary password"
+                placeholderTextColor="#9CA3AF"
+                value={newUserPassword}
+                onChangeText={setNewUserPassword}
+                secureTextEntry
                 autoCapitalize="none"
               />
               <View style={styles.modalButtons}>
@@ -993,6 +1004,7 @@ function AdminDashboardView() {
                     setCreateUserModalVisible(false);
                     setNewUserName('');
                     setNewUserEmail('');
+                    setNewUserPassword('');
                   }}
                 >
                   <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -1002,23 +1014,29 @@ function AdminDashboardView() {
                     styles.button,
                     styles.createButton,
                     pressed && styles.buttonPressed,
-                    !newUserName.trim() && styles.buttonDisabled,
+                    (!newUserName.trim() || !newUserEmail.trim() || !newUserPassword.trim()) && styles.buttonDisabled,
                   ]}
                   onPress={() => {
-                    if (newUserName.trim()) {
-                      createUser({
-                        name: newUserName.trim(),
-                        email: newUserEmail.trim() || undefined,
-                        role: 'leader',
-                      });
-                      setNewUserName('');
-                      setNewUserEmail('');
-                      setCreateUserModalVisible(false);
+                    if (newUserName.trim() && newUserEmail.trim() && newUserPassword.trim()) {
+                      try {
+                        createUser({
+                          name: newUserName.trim(),
+                          email: newUserEmail.trim(),
+                          password: newUserPassword.trim(),
+                          role: 'leader',
+                        });
+                        setNewUserName('');
+                        setNewUserEmail('');
+                        setNewUserPassword('');
+                        setCreateUserModalVisible(false);
+                      } catch (error) {
+                        Alert.alert('Error', error instanceof Error ? error.message : 'Failed to create leader');
+                      }
                     }
                   }}
-                  disabled={!newUserName.trim()}
+                  disabled={!newUserName.trim() || !newUserEmail.trim() || !newUserPassword.trim()}
                 >
-                  <Text style={styles.createButtonText}>Create Leader</Text>
+                  <Text style={styles.createButtonText}>Add Leader</Text>
                 </Pressable>
               </View>
             </Pressable>

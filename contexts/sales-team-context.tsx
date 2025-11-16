@@ -265,6 +265,11 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
   }, [allReps, lastResetDate]);
 
   const withAuthorizedRepUpdate = useCallback((repId: string, apply: (previous: SalesRep[], target: SalesRep) => SalesRep[]) => {
+    if (!currentUser) {
+      console.warn('[SalesTeam] Authorization failed: no current user');
+      throw new Error('You must be logged in to perform this action');
+    }
+
     let nextState: SalesRep[] | null = null;
     let error: Error | null = null;
 
@@ -290,9 +295,14 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
     if (nextState) {
       syncReps(nextState);
     }
-  }, [currentUser.id, isAdmin, syncReps]);
+  }, [currentUser, isAdmin, syncReps]);
 
   const addRep = useCallback((repData: AddRepInput) => {
+    if (!currentUser) {
+      console.warn('[SalesTeam] Cannot add rep: no current user');
+      throw new Error('You must be logged in to add a rep');
+    }
+
     const now = new Date().toISOString();
     const ownerId = isAdmin ? (repData.leaderId ?? repData.belongsToLeader ?? null) : currentUser.id;
 
@@ -319,7 +329,7 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
       syncReps(updated);
       return updated;
     });
-  }, [currentUser.id, isAdmin, syncReps]);
+  }, [currentUser, isAdmin, syncReps]);
 
   const updateRep = useCallback((id: string, updates: Partial<SalesRep>) => {
     withAuthorizedRepUpdate(id, (previous) => {
@@ -561,6 +571,11 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
   }, [syncTodos, withAuthorizedRepUpdate]);
 
   const addContactLog = useCallback((repId: string, payload?: { leaderId?: string; timestamp?: string }) => {
+    if (!currentUser) {
+      console.warn('[SalesTeam] Cannot add contact log: no current user');
+      throw new Error('You must be logged in to add a contact log');
+    }
+
     const rep = allReps.find((item) => item.id === repId);
     if (!rep) {
       throw new Error('Sales rep not found');
@@ -589,9 +604,14 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
       syncContactLogs(updated);
       return updated;
     });
-  }, [allReps, currentUser.id, isAdmin, syncContactLogs]);
+  }, [allReps, currentUser, isAdmin, syncContactLogs]);
 
   const deleteContactLog = useCallback((logId: string) => {
+    if (!currentUser) {
+      console.warn('[SalesTeam] Cannot delete contact log: no current user');
+      throw new Error('You must be logged in to delete a contact log');
+    }
+
     const target = contactLogs.find((log) => log.id === logId);
     if (!target) {
       console.warn('[SalesTeam] Attempted to delete missing contact log', { logId });
@@ -608,9 +628,13 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
       console.log('[SalesTeam] Removed contact log', { logId });
       return updated;
     });
-  }, [contactLogs, currentUser.id, isAdmin, syncContactLogs]);
+  }, [contactLogs, currentUser, isAdmin, syncContactLogs]);
 
   const accessibleReps = useMemo(() => {
+    if (!currentUser) {
+      console.log('[SalesTeam] No current user: showing no reps');
+      return [];
+    }
     if (isAdmin) {
       console.log('[SalesTeam] Admin access: showing all reps', allReps.length);
       return allReps;
@@ -622,7 +646,7 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
       accessible: filtered.length,
     });
     return filtered;
-  }, [allReps, currentUser.id, isAdmin]);
+  }, [allReps, currentUser, isAdmin]);
 
   const accessibleTodos = useMemo(() => {
     const allowedIds = new Set(accessibleReps.map((rep) => rep.id));

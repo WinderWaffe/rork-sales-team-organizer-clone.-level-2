@@ -21,6 +21,9 @@ export interface UserContextValue {
   setCurrentUser: (user: AppUser) => void;
   setCurrentUserById: (userId: string) => void;
   updateUserRole: (userId: string, nextRole: UserRole) => void;
+  createUser: (userData: { name: string; email?: string; role: UserRole }) => AppUser;
+  updateUser: (userId: string, updates: Partial<AppUser>) => void;
+  getUserById: (userId: string) => AppUser | undefined;
 }
 
 export const [UserProvider, useUser] = createContextHook<UserContextValue>(() => {
@@ -65,6 +68,37 @@ export const [UserProvider, useUser] = createContextHook<UserContextValue>(() =>
     });
   }, []);
 
+  const createUser = useCallback((userData: { name: string; email?: string; role: UserRole }): AppUser => {
+    const newUser: AppUser = {
+      id: `user-${Date.now()}`,
+      name: userData.name,
+      email: userData.email,
+      role: userData.role,
+    };
+    setUsers((existing) => [...existing, newUser]);
+    console.log('[UserContext] Created user', { userId: newUser.id, role: newUser.role });
+    return newUser;
+  }, []);
+
+  const updateUser = useCallback((userId: string, updates: Partial<AppUser>) => {
+    setUsers((existing) => {
+      const targetExists = existing.some((user) => user.id === userId);
+      if (!targetExists) {
+        throw new Error('User not found');
+      }
+      return existing.map((user) =>
+        user.id === userId
+          ? { ...user, ...updates }
+          : user
+      );
+    });
+    console.log('[UserContext] Updated user', { userId, updates });
+  }, []);
+
+  const getUserById = useCallback((userId: string): AppUser | undefined => {
+    return users.find((user) => user.id === userId);
+  }, [users]);
+
   const admins = useMemo(() => users.filter((user) => user.role === 'admin'), [users]);
   const leaders = useMemo(() => users.filter((user) => user.role === 'leader'), [users]);
 
@@ -78,5 +112,8 @@ export const [UserProvider, useUser] = createContextHook<UserContextValue>(() =>
     setCurrentUser,
     setCurrentUserById,
     updateUserRole,
+    createUser,
+    updateUser,
+    getUserById,
   };
 });

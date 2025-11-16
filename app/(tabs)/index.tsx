@@ -1,9 +1,9 @@
 import { Stack, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AlertCircle, Check, Flag, TrendingUp, UserCheck } from 'lucide-react-native';
+import { AlertCircle, Check, ChevronRight, Edit, Flag, Plus, TrendingUp, UserCheck, UserPlus, Users } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
-import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import {
   useNeedsFollowUp,
@@ -111,7 +111,7 @@ export default function DashboardScreen() {
   }, [calculateWeeklyContactPercentage]);
 
   if (isAdmin) {
-    return <AdminDashboardView leaders={leaders} allReps={reps} contactLogs={contactLogs} />;
+    return <AdminDashboardView />;
   }
 
   const formattedDailyPercentage = `${Math.round(dailyContactPercentage)}%`;
@@ -678,15 +678,139 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
   },
+  headerButton: {
+    padding: 4,
+    marginRight: 8,
+  },
+  headerButtonPressed: {
+    opacity: 0.6,
+  },
+  leaderEditButton: {
+    padding: 8,
+    marginRight: 4,
+  },
+  leaderEditButtonPressed: {
+    opacity: 0.6,
+  },
+  keyboardAvoid: {
+    flex: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    maxHeight: '90%',
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700' as const,
+    color: '#111827',
+    marginBottom: 20,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#374151',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: '#111827',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  button: {
+    flex: 1,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#F3F4F6',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#374151',
+  },
+  createButton: {
+    backgroundColor: '#0EA5E9',
+  },
+  createButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#FFFFFF',
+  },
+  buttonPressed: {
+    opacity: 0.8,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  roleButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  roleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+  },
+  roleButtonActive: {
+    backgroundColor: '#0EA5E9',
+    borderColor: '#0EA5E9',
+  },
+  roleButtonText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: '#6B7280',
+  },
+  roleButtonTextActive: {
+    color: '#FFFFFF',
+  },
 });
 
-interface AdminDashboardViewProps {
-  leaders: { id: string; name: string; role: 'leader' | 'admin' }[];
-  allReps: SalesRep[];
-  contactLogs: { id: string; repId: string; leaderId: string; timestamp: string }[];
-}
-
-function AdminDashboardView({ leaders, allReps, contactLogs }: AdminDashboardViewProps) {
+function AdminDashboardView() {
+  const router = useRouter();
+  const { leaders, createUser, updateUser, updateUserRole } = useUser();
+  const { reps: allReps, contactLogs } = useSalesTeam();
+  const [createUserModalVisible, setCreateUserModalVisible] = useState(false);
+  const [editUserModalVisible, setEditUserModalVisible] = useState(false);
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [editingUser, setEditingUser] = useState<{ id: string; name: string; email?: string; role: 'leader' | 'admin' } | null>(null);
 
   const leaderStats = useMemo(() => {
     return leaders.map((leader) => {
@@ -732,6 +856,17 @@ function AdminDashboardView({ leaders, allReps, contactLogs }: AdminDashboardVie
             backgroundColor: '#FFFFFF',
           },
           headerShadowVisible: false,
+          headerRight: () => (
+            <Pressable
+              onPress={() => setCreateUserModalVisible(true)}
+              style={({ pressed }) => [
+                styles.headerButton,
+                pressed && styles.headerButtonPressed,
+              ]}
+            >
+              <UserPlus size={24} color="#0EA5E9" />
+            </Pressable>
+          ),
         }}
       />
 
@@ -759,7 +894,7 @@ function AdminDashboardView({ leaders, allReps, contactLogs }: AdminDashboardVie
                 styles.leaderCard,
                 pressed && styles.leaderCardPressed,
               ]}
-              onPress={() => console.log('[AdminDashboard] Leader card pressed', stat.leaderId)}
+              onPress={() => router.push(`/leader/${stat.leaderId}`)}
             >
               <View style={styles.leaderHeader}>
                 <View style={styles.leaderAvatar}>
@@ -771,6 +906,28 @@ function AdminDashboardView({ leaders, allReps, contactLogs }: AdminDashboardVie
                   <Text style={styles.leaderName}>{stat.leaderName}</Text>
                   <Text style={styles.leaderRole}>Team Leader</Text>
                 </View>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.leaderEditButton,
+                    pressed && styles.leaderEditButtonPressed,
+                  ]}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    const leader = leaders.find(l => l.id === stat.leaderId);
+                    if (leader) {
+                      setEditingUser({
+                        id: leader.id,
+                        name: leader.name,
+                        email: leader.email,
+                        role: leader.role,
+                      });
+                      setEditUserModalVisible(true);
+                    }
+                  }}
+                >
+                  <Edit size={18} color="#6B7280" />
+                </Pressable>
+                <ChevronRight size={20} color="#9CA3AF" />
               </View>
 
               <View style={styles.leaderStats}>
@@ -789,6 +946,195 @@ function AdminDashboardView({ leaders, allReps, contactLogs }: AdminDashboardVie
           ))
         )}
       </ScrollView>
+
+      <Modal
+        visible={createUserModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCreateUserModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoid}
+        >
+          <Pressable
+            style={styles.modalOverlay}
+            onPress={() => setCreateUserModalVisible(false)}
+          >
+            <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalHandle} />
+              <Text style={styles.modalTitle}>Create New User</Text>
+              <Text style={styles.fieldLabel}>Name *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter name"
+                placeholderTextColor="#9CA3AF"
+                value={newUserName}
+                onChangeText={setNewUserName}
+              />
+              <Text style={styles.fieldLabel}>Email</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter email (optional)"
+                placeholderTextColor="#9CA3AF"
+                value={newUserEmail}
+                onChangeText={setNewUserEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <View style={styles.modalButtons}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.button,
+                    styles.cancelButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                  onPress={() => {
+                    setCreateUserModalVisible(false);
+                    setNewUserName('');
+                    setNewUserEmail('');
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.button,
+                    styles.createButton,
+                    pressed && styles.buttonPressed,
+                    !newUserName.trim() && styles.buttonDisabled,
+                  ]}
+                  onPress={() => {
+                    if (newUserName.trim()) {
+                      createUser({
+                        name: newUserName.trim(),
+                        email: newUserEmail.trim() || undefined,
+                        role: 'leader',
+                      });
+                      setNewUserName('');
+                      setNewUserEmail('');
+                      setCreateUserModalVisible(false);
+                    }
+                  }}
+                  disabled={!newUserName.trim()}
+                >
+                  <Text style={styles.createButtonText}>Create Leader</Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={editUserModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditUserModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoid}
+        >
+          <Pressable
+            style={styles.modalOverlay}
+            onPress={() => setEditUserModalVisible(false)}
+          >
+            <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalHandle} />
+              <Text style={styles.modalTitle}>Edit User</Text>
+              <Text style={styles.fieldLabel}>Name *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter name"
+                placeholderTextColor="#9CA3AF"
+                value={editingUser?.name ?? ''}
+                onChangeText={(text) => setEditingUser(prev => prev ? { ...prev, name: text } : null)}
+              />
+              <Text style={styles.fieldLabel}>Email</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter email (optional)"
+                placeholderTextColor="#9CA3AF"
+                value={editingUser?.email ?? ''}
+                onChangeText={(text) => setEditingUser(prev => prev ? { ...prev, email: text } : null)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <Text style={styles.fieldLabel}>Role</Text>
+              <View style={styles.roleButtons}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.roleButton,
+                    editingUser?.role === 'leader' && styles.roleButtonActive,
+                    pressed && styles.buttonPressed,
+                  ]}
+                  onPress={() => setEditingUser(prev => prev ? { ...prev, role: 'leader' } : null)}
+                >
+                  <Users size={18} color={editingUser?.role === 'leader' ? '#FFFFFF' : '#6B7280'} />
+                  <Text style={[
+                    styles.roleButtonText,
+                    editingUser?.role === 'leader' && styles.roleButtonTextActive,
+                  ]}>Leader</Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.roleButton,
+                    editingUser?.role === 'admin' && styles.roleButtonActive,
+                    pressed && styles.buttonPressed,
+                  ]}
+                  onPress={() => setEditingUser(prev => prev ? { ...prev, role: 'admin' } : null)}
+                >
+                  <AlertCircle size={18} color={editingUser?.role === 'admin' ? '#FFFFFF' : '#6B7280'} />
+                  <Text style={[
+                    styles.roleButtonText,
+                    editingUser?.role === 'admin' && styles.roleButtonTextActive,
+                  ]}>Admin</Text>
+                </Pressable>
+              </View>
+              <View style={styles.modalButtons}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.button,
+                    styles.cancelButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                  onPress={() => {
+                    setEditUserModalVisible(false);
+                    setEditingUser(null);
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.button,
+                    styles.createButton,
+                    pressed && styles.buttonPressed,
+                    !editingUser?.name.trim() && styles.buttonDisabled,
+                  ]}
+                  onPress={() => {
+                    if (editingUser && editingUser.name.trim()) {
+                      updateUser(editingUser.id, {
+                        name: editingUser.name.trim(),
+                        email: editingUser.email?.trim() || undefined,
+                      });
+                      if (editingUser.role) {
+                        updateUserRole(editingUser.id, editingUser.role);
+                      }
+                      setEditingUser(null);
+                      setEditUserModalVisible(false);
+                    }
+                  }}
+                  disabled={!editingUser?.name.trim()}
+                >
+                  <Text style={styles.createButtonText}>Save Changes</Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }

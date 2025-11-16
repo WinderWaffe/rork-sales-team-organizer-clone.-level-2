@@ -18,6 +18,7 @@ type StoredSalesRep = Partial<SalesRep> & {
   notes?: string;
   belongs_to_leader?: string | null;
   belongsToLeader?: string | null;
+  leaderId?: string | null;
   todos?: StoredTodoRecord[];
   last_contacted_at?: string | null;
   lastContactDate?: string | null;
@@ -39,6 +40,7 @@ export interface AddRepInput {
   instagram?: string;
   notes?: string;
   belongsToLeader?: string | null;
+  leaderId?: string | null;
 }
 
 export interface SalesTeamContextValue {
@@ -272,7 +274,7 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
         error = new Error('Sales rep not found');
         return previous;
       }
-      if (!isAdmin && target.belongsToLeader !== currentUser.id) {
+      if (!isAdmin && target.leaderId !== currentUser.id) {
         error = new Error('You do not have permission to modify this sales rep');
         return previous;
       }
@@ -292,7 +294,7 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
 
   const addRep = useCallback((repData: AddRepInput) => {
     const now = new Date().toISOString();
-    const ownerId = isAdmin ? repData.belongsToLeader ?? null : currentUser.id;
+    const ownerId = isAdmin ? (repData.leaderId ?? repData.belongsToLeader ?? null) : currentUser.id;
 
     const newRep: SalesRep = {
       id: Date.now().toString(),
@@ -301,6 +303,7 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
       instagram: repData.instagram,
       notes: repData.notes ?? '',
       belongsToLeader: ownerId,
+      leaderId: ownerId,
       lastContactDate: null,
       createdAt: now,
       last_contacted_at: null,
@@ -309,7 +312,7 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
       todos: [],
     };
 
-    console.log('[SalesTeam] Adding rep', { repId: newRep.id, ownerId });
+    console.log('[SalesTeam] Adding rep', { repId: newRep.id, leaderId: ownerId });
 
     setAllReps((previous) => {
       const updated = [...previous, newRep];
@@ -324,14 +327,21 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
         if (rep.id !== id) {
           return rep;
         }
+        const leaderIdProvided = Object.prototype.hasOwnProperty.call(updates, 'leaderId');
         const belongsFieldProvided = Object.prototype.hasOwnProperty.call(updates, 'belongsToLeader');
+        
+        const nextLeaderId = isAdmin
+          ? (leaderIdProvided ? (updates.leaderId ?? null) : rep.leaderId)
+          : rep.leaderId;
         const nextBelongsToLeader = isAdmin
-          ? (belongsFieldProvided ? (updates.belongsToLeader ?? null) : rep.belongsToLeader)
+          ? (belongsFieldProvided ? (updates.belongsToLeader ?? null) : nextLeaderId)
           : rep.belongsToLeader;
-        const { belongsToLeader: _ignoredBelongsToLeader, todos: _ignoredTodos, ...restUpdates } = updates;
+        
+        const { belongsToLeader: _ignoredBelongsToLeader, leaderId: _ignoredLeaderId, todos: _ignoredTodos, ...restUpdates } = updates;
         const sanitizedUpdates: Partial<SalesRep> = {
           ...restUpdates,
           belongsToLeader: nextBelongsToLeader,
+          leaderId: nextLeaderId,
           todos: rep.todos,
         };
         return { ...rep, ...sanitizedUpdates };
@@ -560,7 +570,7 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
       if (resolvedLeaderId !== currentUser.id) {
         throw new Error('Leaders can only log their own activity');
       }
-      if (rep.belongsToLeader !== currentUser.id) {
+      if (rep.leaderId !== currentUser.id) {
         throw new Error('You do not have permission to log activity for this sales rep');
       }
     }
@@ -602,9 +612,16 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
 
   const accessibleReps = useMemo(() => {
     if (isAdmin) {
+      console.log('[SalesTeam] Admin access: showing all reps', allReps.length);
       return allReps;
     }
-    return allReps.filter((rep) => rep.belongsToLeader === currentUser.id);
+    const filtered = allReps.filter((rep) => rep.leaderId === currentUser.id);
+    console.log('[SalesTeam] Leader access: filtered reps', {
+      leaderId: currentUser.id,
+      total: allReps.length,
+      accessible: filtered.length,
+    });
+    return filtered;
   }, [allReps, currentUser.id, isAdmin]);
 
   const accessibleTodos = useMemo(() => {
@@ -717,15 +734,20 @@ function migrateRep(rep: StoredSalesRep): SalesRep {
     repId: todo.repId ?? rep.id,
   }));
 
+  const belongsToLeader = typeof rep.belongsToLeader === 'string'
+    ? rep.belongsToLeader
+    : rep.belongs_to_leader ?? null;
+  
+  const leaderId = rep.leaderId ?? belongsToLeader;
+
   return {
     id: rep.id,
     name: rep.name,
     phoneNumber: rep.phoneNumber,
     instagram: rep.instagram,
     notes: rep.notes ?? '',
-    belongsToLeader: typeof rep.belongsToLeader === 'string'
-      ? rep.belongsToLeader
-      : rep.belongs_to_leader ?? null,
+    belongsToLeader,
+    leaderId,
     createdAt: rep.createdAt ?? new Date().toISOString(),
     last_contacted_at: rep.last_contacted_at ?? rep.lastContactDate ?? null,
     lastContactDate: rep.lastContactDate ?? rep.last_contacted_at ?? null,
@@ -764,12 +786,16 @@ function createSeedData(): SalesRep[] {
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
   const now = new Date().toISOString();
 
+  const leader1 = DEFAULT_LEADER_ASSIGNMENTS[0] ?? null;
+  const leader2 = DEFAULT_LEADER_ASSIGNMENTS[1] ?? null;
+
   const seeds: SalesRep[] = [
     {
       id: 'seed-1',
       name: 'Quade Peacock',
       notes: '',
-      belongsToLeader: DEFAULT_LEADER_ASSIGNMENTS[0] ?? null,
+      belongsToLeader: leader1,
+      leaderId: leader1,
       createdAt: twoHoursAgo,
       last_contacted_at: twoHoursAgo,
       lastContactDate: twoHoursAgo,
@@ -781,7 +807,8 @@ function createSeedData(): SalesRep[] {
       id: 'seed-2',
       name: 'Kaden Morris',
       notes: '',
-      belongsToLeader: DEFAULT_LEADER_ASSIGNMENTS[0] ?? null,
+      belongsToLeader: leader1,
+      leaderId: leader1,
       createdAt: threeDaysAgo,
       last_contacted_at: threeDaysAgo,
       lastContactDate: threeDaysAgo,
@@ -793,7 +820,8 @@ function createSeedData(): SalesRep[] {
       id: 'seed-3',
       name: 'Justin Lundskog',
       notes: '',
-      belongsToLeader: DEFAULT_LEADER_ASSIGNMENTS[1] ?? null,
+      belongsToLeader: leader2,
+      leaderId: leader2,
       createdAt: now,
       last_contacted_at: null,
       lastContactDate: null,

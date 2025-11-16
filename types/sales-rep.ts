@@ -25,6 +25,7 @@ export interface SalesRep {
   instagram?: string;
   notes: string;
   belongsToLeader: string | null;
+  leaderId: string | null;
   lastContactDate: string | null;
   createdAt: string;
   last_contacted_at: string | null;

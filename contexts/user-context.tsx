@@ -68,7 +68,7 @@ export const [UserProvider, useUser] = createContextHook<UserContextValue>(() =>
   const admins = useMemo(() => users.filter((user) => user.role === 'admin'), [users]);
   const leaders = useMemo(() => users.filter((user) => user.role === 'leader'), [users]);
 
-  return useMemo(() => ({
+  return {
     currentUser,
     isAdmin: currentUser.role === 'admin',
     isLeader: currentUser.role === 'leader',
@@ -78,5 +78,5 @@ export const [UserProvider, useUser] = createContextHook<UserContextValue>(() =>
     setCurrentUser,
     setCurrentUserById,
     updateUserRole,
-  }), [admins, currentUser, leaders, setCurrentUser, setCurrentUserById, updateUserRole, users]);
+  };
 });

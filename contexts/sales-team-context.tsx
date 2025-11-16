@@ -58,12 +58,8 @@ export interface SalesTeamContextValue {
   deleteContactLog: (logId: string) => void;
   getTodosForRep: (repId: string) => Todo[];
   getContactLogsForRep: (repId: string) => ContactLog[];
-  getRepsForLeader: (leaderId: string) => SalesRep[];
-  getContactLogsForLeader: (leaderId: string) => ContactLog[];
   calculateDailyContactPercentage: () => number;
   calculateWeeklyContactPercentage: () => number;
-  calculateLeaderDailyContactPercentage: (leaderId: string) => number;
-  calculateLeaderWeeklyContactPercentage: (leaderId: string) => number;
   isLoading: boolean;
 }
 
@@ -629,32 +625,36 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
     return accessibleContactLogs.filter((log) => log.repId === repId);
   }, [accessibleContactLogs]);
 
-  const getRepsForLeader = useCallback((leaderId: string) => {
-    if (!leaderId) {
-      return [];
-    }
-    if (!isAdmin && leaderId !== currentUser.id) {
-      throw new Error('You do not have permission to view this leader');
-    }
-    return allReps.filter((rep) => rep.belongsToLeader === leaderId);
-  }, [allReps, currentUser.id, isAdmin]);
-
-  const getContactLogsForLeader = useCallback((leaderId: string) => {
-    const repsForLeader = getRepsForLeader(leaderId);
-    if (repsForLeader.length === 0) {
-      return [];
-    }
-    const allowedRepIds = new Set(repsForLeader.map((rep) => rep.id));
-    return contactLogs.filter((log) => allowedRepIds.has(log.repId));
-  }, [contactLogs, getRepsForLeader]);
-
-  const calculateContactCoveragePercentage = useCallback((targetReps: SalesRep[], targetLogs: ContactLog[], windowStart: Date) => {
-    const totalReps = targetReps.length;
+  const calculateDailyContactPercentage = useCallback(() => {
+    const totalReps = accessibleReps.length;
     if (totalReps === 0) {
       return 0;
     }
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
     const contactedRepIds = new Set<string>();
-    for (const log of targetLogs) {
+    for (const log of accessibleContactLogs) {
+      const logTime = new Date(log.timestamp);
+      if (Number.isNaN(logTime.getTime())) {
+        continue;
+      }
+      if (logTime >= startOfToday) {
+        contactedRepIds.add(log.repId);
+      }
+    }
+    return (contactedRepIds.size / totalReps) * 100;
+  }, [accessibleContactLogs, accessibleReps]);
+
+  const calculateWeeklyContactPercentage = useCallback(() => {
+    const totalReps = accessibleReps.length;
+    if (totalReps === 0) {
+      return 0;
+    }
+    const windowStart = new Date();
+    windowStart.setHours(0, 0, 0, 0);
+    windowStart.setDate(windowStart.getDate() - 6);
+    const contactedRepIds = new Set<string>();
+    for (const log of accessibleContactLogs) {
       const logTime = new Date(log.timestamp);
       if (Number.isNaN(logTime.getTime())) {
         continue;
@@ -664,37 +664,7 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
       }
     }
     return (contactedRepIds.size / totalReps) * 100;
-  }, []);
-
-  const calculateDailyContactPercentage = useCallback(() => {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    return calculateContactCoveragePercentage(accessibleReps, accessibleContactLogs, startOfToday);
-  }, [accessibleContactLogs, accessibleReps, calculateContactCoveragePercentage]);
-
-  const calculateWeeklyContactPercentage = useCallback(() => {
-    const windowStart = new Date();
-    windowStart.setHours(0, 0, 0, 0);
-    windowStart.setDate(windowStart.getDate() - 6);
-    return calculateContactCoveragePercentage(accessibleReps, accessibleContactLogs, windowStart);
-  }, [accessibleContactLogs, accessibleReps, calculateContactCoveragePercentage]);
-
-  const calculateLeaderDailyContactPercentage = useCallback((leaderId: string) => {
-    const repsForLeader = getRepsForLeader(leaderId);
-    const logsForLeader = getContactLogsForLeader(leaderId);
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    return calculateContactCoveragePercentage(repsForLeader, logsForLeader, startOfToday);
-  }, [calculateContactCoveragePercentage, getContactLogsForLeader, getRepsForLeader]);
-
-  const calculateLeaderWeeklyContactPercentage = useCallback((leaderId: string) => {
-    const repsForLeader = getRepsForLeader(leaderId);
-    const logsForLeader = getContactLogsForLeader(leaderId);
-    const windowStart = new Date();
-    windowStart.setHours(0, 0, 0, 0);
-    windowStart.setDate(windowStart.getDate() - 6);
-    return calculateContactCoveragePercentage(repsForLeader, logsForLeader, windowStart);
-  }, [calculateContactCoveragePercentage, getContactLogsForLeader, getRepsForLeader]);
+  }, [accessibleContactLogs, accessibleReps]);
 
   return useMemo(() => ({
     reps: accessibleReps,
@@ -713,12 +683,8 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
     deleteContactLog,
     getTodosForRep,
     getContactLogsForRep,
-    getRepsForLeader,
-    getContactLogsForLeader,
     calculateDailyContactPercentage,
     calculateWeeklyContactPercentage,
-    calculateLeaderDailyContactPercentage,
-    calculateLeaderWeeklyContactPercentage,
     isLoading: repsQuery.isLoading || todosQuery.isLoading || contactLogsQuery.isLoading,
   }), [
     accessibleContactLogs,
@@ -728,16 +694,12 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
     addRep,
     addTodo,
     calculateDailyContactPercentage,
-    calculateLeaderDailyContactPercentage,
-    calculateLeaderWeeklyContactPercentage,
     calculateWeeklyContactPercentage,
     contactLogsQuery.isLoading,
     deleteContactLog,
     deleteRep,
     deleteTodo,
-    getContactLogsForLeader,
     getContactLogsForRep,
-    getRepsForLeader,
     getTodosForRep,
     repsQuery.isLoading,
     toggleContactedStatus,

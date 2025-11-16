@@ -1,12 +1,15 @@
 import { Stack, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AlertCircle, ArrowLeft, Check, ChevronRight, Crown, Flag, TrendingUp, UserCheck } from 'lucide-react-native';
-import React, { useEffect, useMemo, useState } from 'react';
+import { AlertCircle, Check, Flag, TrendingUp, UserCheck } from 'lucide-react-native';
+import React, { useMemo, useState } from 'react';
 import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { useSalesTeam } from '@/contexts/sales-team-context';
-import { useUser } from '@/contexts/user-context';
+import {
+  useNeedsFollowUp,
+  useContactedToday,
+  useSalesTeam,
+} from '@/contexts/sales-team-context';
 import { SalesRep } from '@/types/sales-rep';
 
 function ContactToggleButton({ rep, onPress }: { rep: SalesRep; onPress: (repId: string, currentContactedToday: boolean) => void }) {
@@ -85,135 +88,28 @@ function ContactToggleButton({ rep, onPress }: { rep: SalesRep; onPress: (repId:
 }
 
 export default function DashboardScreen() {
-  const {
-    reps,
-    toggleContactedStatus,
-    calculateDailyContactPercentage,
-    calculateWeeklyContactPercentage,
-    getRepsForLeader,
-    calculateLeaderDailyContactPercentage,
-    calculateLeaderWeeklyContactPercentage,
-  } = useSalesTeam();
-  const { currentUser, isAdmin, isLeader, leaders } = useUser();
+  const { reps, toggleContactedStatus, calculateDailyContactPercentage, calculateWeeklyContactPercentage } = useSalesTeam();
+  const needsFollowUp = useNeedsFollowUp();
+  const contactedToday = useContactedToday();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [selectedLeaderId, setSelectedLeaderId] = useState<string | null>(null);
-
-  const viewingLeaderId = useMemo(() => {
-    if (isAdmin) {
-      return selectedLeaderId;
-    }
-    if (isLeader) {
-      return currentUser.id;
-    }
-    return null;
-  }, [currentUser.id, isAdmin, isLeader, selectedLeaderId]);
-
-  const isAdminOverview = isAdmin && !viewingLeaderId;
-
-  const viewingLeader = useMemo(() => {
-    if (!viewingLeaderId) {
-      return null;
-    }
-    return leaders.find((leader) => leader.id === viewingLeaderId) ?? null;
-  }, [leaders, viewingLeaderId]);
-
-  useEffect(() => {
-    if (!isAdmin) {
-      setSelectedLeaderId(null);
-    }
-  }, [isAdmin]);
-
-  useEffect(() => {
-    if (isAdmin && viewingLeaderId && !viewingLeader) {
-      setSelectedLeaderId(null);
-    }
-  }, [isAdmin, viewingLeader, viewingLeaderId]);
-
-  const displayReps = useMemo(() => {
-    if (viewingLeaderId) {
-      try {
-        return getRepsForLeader(viewingLeaderId);
-      } catch (err) {
-        console.warn('[Dashboard] Unable to resolve reps for leader', { viewingLeaderId, error: err });
-        return [];
-      }
-    }
-    return reps;
-  }, [getRepsForLeader, reps, viewingLeaderId]);
-
-  const leaderSummaries = useMemo(() => {
-    if (!isAdmin) {
-      return [];
-    }
-    const summaries = leaders.map((leader) => {
-      let repsForLeader: SalesRep[] = [];
-      try {
-        repsForLeader = getRepsForLeader(leader.id);
-      } catch {
-        repsForLeader = [];
-      }
-      const daily = calculateLeaderDailyContactPercentage(leader.id);
-      const weekly = calculateLeaderWeeklyContactPercentage(leader.id);
-      return {
-        leader,
-        repCount: repsForLeader.length,
-        daily: Number.isFinite(daily) ? daily : 0,
-        weekly: Number.isFinite(weekly) ? weekly : 0,
-      };
-    });
-    summaries.sort((a, b) => b.weekly - a.weekly);
-    return summaries;
-  }, [calculateLeaderDailyContactPercentage, calculateLeaderWeeklyContactPercentage, getRepsForLeader, isAdmin, leaders]);
 
   const dailyContactPercentage = useMemo(() => {
-    const value = viewingLeaderId
-      ? calculateLeaderDailyContactPercentage(viewingLeaderId)
-      : calculateDailyContactPercentage();
+    const value = calculateDailyContactPercentage();
     const sanitized = Number.isFinite(value) ? value : 0;
-    console.log('[Dashboard] Computed daily contact percentage', { sanitized, viewingLeaderId });
+    console.log('[Dashboard] Computed daily contact percentage', { sanitized });
     return sanitized;
-  }, [calculateDailyContactPercentage, calculateLeaderDailyContactPercentage, viewingLeaderId]);
+  }, [calculateDailyContactPercentage]);
 
   const weeklyContactPercentage = useMemo(() => {
-    const value = viewingLeaderId
-      ? calculateLeaderWeeklyContactPercentage(viewingLeaderId)
-      : calculateWeeklyContactPercentage();
+    const value = calculateWeeklyContactPercentage();
     const sanitized = Number.isFinite(value) ? value : 0;
-    console.log('[Dashboard] Computed weekly contact percentage', { sanitized, viewingLeaderId });
+    console.log('[Dashboard] Computed weekly contact percentage', { sanitized });
     return sanitized;
-  }, [calculateLeaderWeeklyContactPercentage, calculateWeeklyContactPercentage, viewingLeaderId]);
+  }, [calculateWeeklyContactPercentage]);
 
   const formattedDailyPercentage = `${Math.round(dailyContactPercentage)}%`;
   const formattedWeeklyPercentage = `${Math.round(weeklyContactPercentage)}%`;
-
-  const needsFollowUp = useMemo(() => {
-    if (isAdminOverview) {
-      return [];
-    }
-    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
-    return displayReps.filter((rep) => {
-      if (!rep.last_contacted_at) {
-        return true;
-      }
-      const lastContact = new Date(rep.last_contacted_at);
-      return lastContact < cutoff;
-    });
-  }, [displayReps, isAdminOverview]);
-
-  const contactedToday = useMemo(() => {
-    if (isAdminOverview) {
-      return [];
-    }
-    const contacted = displayReps.filter((rep) => rep.contacted_today);
-    return contacted.sort((a, b) => {
-      const aTime = a.last_contacted_at ? new Date(a.last_contacted_at).getTime() : 0;
-      const bTime = b.last_contacted_at ? new Date(b.last_contacted_at).getTime() : 0;
-      return bTime - aTime;
-    });
-  }, [displayReps, isAdminOverview]);
-
-  const totalDisplayReps = displayReps.length;
 
   const handleMarkContacted = async (repId: string, currentContactedToday: boolean) => {
     setError(null);
@@ -224,14 +120,6 @@ export default function DashboardScreen() {
       setError('Could not update. Try again');
       setTimeout(() => setError(null), 3000);
     }
-  };
-
-  const handleSelectLeader = (leaderId: string) => {
-    setSelectedLeaderId(leaderId);
-  };
-
-  const handleExitLeaderView = () => {
-    setSelectedLeaderId(null);
   };
 
   const getTimeSinceContact = (rep: SalesRep) => {
@@ -268,8 +156,7 @@ export default function DashboardScreen() {
 
     if (diffHours >= 48) {
       return '#EF4444';
-    }
-    if (diffHours >= 24) {
+    } else if (diffHours >= 24) {
       return '#D97706';
     }
     return '#111827';
@@ -280,7 +167,7 @@ export default function DashboardScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: isAdminOverview ? 'Admin Dashboard' : 'Dashboard',
+          title: 'Dashboard',
           headerStyle: {
             backgroundColor: '#FFFFFF',
           },
@@ -288,257 +175,159 @@ export default function DashboardScreen() {
         }}
       />
 
-      {isAdminOverview ? (
-        <ScrollView contentContainerStyle={styles.adminScrollContent}>
-          <LinearGradient
-            colors={['#0EA5E9', '#4338CA']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.adminHeroCard}
-            testID="admin-hero-card"
-          >
-            <View style={styles.adminHeroHeader}>
-              <View style={styles.adminHeroIcon}>
-                <Crown size={22} color="#FFFFFF" />
-              </View>
-              <View>
-                <Text style={styles.adminHeroTitle}>Company Pulse</Text>
-                <Text style={styles.adminHeroSubtitle}>Across all teams</Text>
-              </View>
-            </View>
-            <View style={styles.adminHeroMetrics}>
-              <View style={styles.adminHeroMetric}>
-                <Text style={styles.adminHeroMetricLabel}>Daily</Text>
-                <Text style={styles.adminHeroMetricValue}>{formattedDailyPercentage}</Text>
-              </View>
-              <View style={styles.adminHeroMetric}>
-                <Text style={styles.adminHeroMetricLabel}>Weekly</Text>
-                <Text style={styles.adminHeroMetricValue}>{formattedWeeklyPercentage}</Text>
-              </View>
-              <View style={styles.adminHeroMetric}>
-                <Text style={styles.adminHeroMetricLabel}>Reps</Text>
-                <Text style={styles.adminHeroMetricValue}>{reps.length}</Text>
-              </View>
-            </View>
-          </LinearGradient>
-
-          <View style={styles.leaderListSection}>
-            <Text style={styles.leaderListTitle}>Leader Insights</Text>
-            {leaderSummaries.length === 0 ? (
-              <View style={styles.adminEmptyState}>
-                <Text style={styles.adminEmptyTitle}>No leaders yet</Text>
-                <Text style={styles.adminEmptySubtitle}>Invite leaders to start tracking performance.</Text>
-              </View>
-            ) : (
-              leaderSummaries.map((summary) => (
-                <Pressable
-                  key={summary.leader.id}
-                  onPress={() => handleSelectLeader(summary.leader.id)}
-                  style={({ pressed }) => [
-                    styles.leaderCard,
-                    pressed && styles.leaderCardPressed,
-                  ]}
-                  testID={`admin-leader-card-${summary.leader.id}`}
-                >
-                  <View style={styles.leaderCardHeader}>
-                    <View style={styles.leaderAvatar}>
-                      <Text style={styles.leaderAvatarText}>
-                        {summary.leader.name.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                    <View style={styles.leaderInfo}>
-                      <Text style={styles.leaderName}>{summary.leader.name}</Text>
-                      <Text style={styles.leaderMeta}>{summary.repCount} reps</Text>
-                    </View>
-                    <ChevronRight size={20} color="#94A3B8" />
-                  </View>
-                  <View style={styles.leaderMetricsRow}>
-                    <View style={styles.leaderMetricPill}>
-                      <Text style={styles.leaderMetricLabel}>Daily</Text>
-                      <Text style={styles.leaderMetricValue}>{`${Math.round(summary.daily)}%`}</Text>
-                    </View>
-                    <View style={styles.leaderMetricPill}>
-                      <Text style={styles.leaderMetricLabel}>Weekly</Text>
-                      <Text style={styles.leaderMetricValue}>{`${Math.round(summary.weekly)}%`}</Text>
-                    </View>
-                  </View>
-                </Pressable>
-              ))
-            )}
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {error && (
+          <View style={styles.errorBanner}>
+            <AlertCircle size={16} color="#FFFFFF" />
+            <Text style={styles.errorText}>{error}</Text>
           </View>
-        </ScrollView>
-      ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {isAdmin && viewingLeader && (
-            <Pressable
-              onPress={handleExitLeaderView}
-              style={({ pressed }) => [
-                styles.viewingBanner,
-                pressed && styles.viewingBannerPressed,
-              ]}
-              testID="admin-exit-leader-view"
+        )}
+
+        <View style={styles.performanceRow} testID="performance-metrics">
+          <View style={styles.performanceCardWrapper}>
+            <LinearGradient
+              colors={['#0EA5E9', '#2563EB']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.performanceCard}
+              testID="leader-daily-percentage-card"
             >
-              <ArrowLeft size={16} color="#0EA5E9" />
-              <View style={styles.viewingBannerTextWrapper}>
-                <Text style={styles.viewingBannerLabel}>Viewing as</Text>
-                <Text style={styles.viewingBannerValue}>{viewingLeader.name}</Text>
-              </View>
-            </Pressable>
-          )}
+              <Text style={styles.performanceLabel}>Daily Contact Rate</Text>
+              <Text style={styles.performanceValue}>{formattedDailyPercentage}</Text>
+              <Text style={styles.performanceDescription}>Reps contacted today</Text>
+            </LinearGradient>
+          </View>
+          <View style={styles.performanceCardWrapper}>
+            <LinearGradient
+              colors={['#10B981', '#047857']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.performanceCard}
+              testID="leader-weekly-percentage-card"
+            >
+              <Text style={styles.performanceLabel}>Weekly Reach</Text>
+              <Text style={styles.performanceValue}>{formattedWeeklyPercentage}</Text>
+              <Text style={styles.performanceDescription}>Reps touched in 7 days</Text>
+            </LinearGradient>
+          </View>
+        </View>
 
-          {error && (
-            <View style={styles.errorBanner}>
-              <AlertCircle size={16} color="#FFFFFF" />
-              <Text style={styles.errorText}>{error}</Text>
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <View style={styles.statIconContainer}>
+              <TrendingUp size={24} color="#0EA5E9" />
             </View>
-          )}
-
-          <View style={styles.performanceRow} testID="performance-metrics">
-            <View style={styles.performanceCardWrapper}>
-              <LinearGradient
-                colors={['#0EA5E9', '#2563EB']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.performanceCard}
-                testID="leader-daily-percentage-card"
-              >
-                <Text style={styles.performanceLabel}>Daily Contact Rate</Text>
-                <Text style={styles.performanceValue}>{formattedDailyPercentage}</Text>
-                <Text style={styles.performanceDescription}>Reps contacted today</Text>
-              </LinearGradient>
-            </View>
-            <View style={styles.performanceCardWrapper}>
-              <LinearGradient
-                colors={['#10B981', '#047857']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.performanceCard}
-                testID="leader-weekly-percentage-card"
-              >
-                <Text style={styles.performanceLabel}>Weekly Reach</Text>
-                <Text style={styles.performanceValue}>{formattedWeeklyPercentage}</Text>
-                <Text style={styles.performanceDescription}>Reps touched in 7 days</Text>
-              </LinearGradient>
-            </View>
+            <Text style={styles.statValue}>{reps.length}</Text>
+            <Text style={styles.statLabel}>Total Reps</Text>
           </View>
 
-          <View style={styles.statsContainer}>
-            <View style={styles.statCard}>
-              <View style={styles.statIconContainer}>
-                <TrendingUp size={24} color="#0EA5E9" />
-              </View>
-              <Text style={styles.statValue}>{totalDisplayReps}</Text>
-              <Text style={styles.statLabel}>Total Reps</Text>
+          <View style={[styles.statCard, styles.urgentCard]}>
+            <View style={[styles.statIconContainer, styles.urgentIconContainer]}>
+              <AlertCircle size={24} color="#EF4444" />
             </View>
-
-            <View style={[styles.statCard, styles.urgentCard]}>
-              <View style={[styles.statIconContainer, styles.urgentIconContainer]}>
-                <AlertCircle size={24} color="#EF4444" />
-              </View>
-              <Text style={[styles.statValue, styles.urgentValue]}>
-                {needsFollowUp.length}
-              </Text>
-              <Text style={styles.statLabel}>Need Follow-Up</Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <View style={[styles.statIconContainer, styles.successIconContainer]}>
-                <UserCheck size={24} color="#10B981" />
-              </View>
-              <Text style={styles.statValue}>{contactedToday.length}</Text>
-              <Text style={styles.statLabel}>Contacted Today</Text>
-            </View>
+            <Text style={[styles.statValue, styles.urgentValue]}>
+              {needsFollowUp.length}
+            </Text>
+            <Text style={styles.statLabel}>Need Follow-Up</Text>
           </View>
 
-          {needsFollowUp.length > 0 && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <AlertCircle size={20} color="#EF4444" />
-                <Text style={styles.sectionTitle}>Urgent Follow-Ups</Text>
-              </View>
-              <View style={styles.sectionContent}>
-                {needsFollowUp.map((rep) => (
-                  <Pressable
-                    key={rep.id}
-                    style={({ pressed }) => [
-                      styles.repItem,
-                      pressed && styles.repItemPressed,
-                    ]}
-                    onPress={() => router.push(`/rep/${rep.id}`)}
-                  >
-                    <View style={styles.repAvatar}>
-                      <Text style={styles.repAvatarText}>
-                        {rep.name.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                    <View style={styles.repInfo}>
-                      <Text style={[styles.repName, { color: getNameColor(rep) }]}>{rep.name}</Text>
-                      <Text style={styles.repTime}>
-                        {getTimeSinceContact(rep)}
-                      </Text>
-                    </View>
-                    {rep.todos && rep.todos.filter((todo) => todo.status === 'open').length > 0 && (
-                      <View style={styles.todoIndicator}>
-                        <Flag size={14} color="#0EA5E9" fill="#0EA5E9" />
-                      </View>
-                    )}
-                    <ContactToggleButton rep={rep} onPress={handleMarkContacted} />
-                  </Pressable>
-                ))}
-              </View>
+          <View style={styles.statCard}>
+            <View style={[styles.statIconContainer, styles.successIconContainer]}>
+              <UserCheck size={24} color="#10B981" />
             </View>
-          )}
+            <Text style={styles.statValue}>{contactedToday.length}</Text>
+            <Text style={styles.statLabel}>Contacted Today</Text>
+          </View>
+        </View>
 
-          {contactedToday.length > 0 && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <UserCheck size={20} color="#10B981" />
-                <Text style={styles.sectionTitle}>Contacted Today</Text>
-              </View>
-              <View style={styles.sectionContent}>
-                {contactedToday.map((rep) => (
-                  <Pressable
-                    key={rep.id}
-                    style={({ pressed }) => [
-                      styles.repItem,
-                      pressed && styles.repItemPressed,
-                    ]}
-                    onPress={() => router.push(`/rep/${rep.id}`)}
-                  >
-                    <View style={styles.repAvatar}>
-                      <Text style={styles.repAvatarText}>
-                        {rep.name.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                    <View style={styles.repInfo}>
-                      <Text style={[styles.repName, { color: getNameColor(rep) }]}>{rep.name}</Text>
-                      <Text style={styles.repTime}>
-                        {getTimeSinceContact(rep)}
-                      </Text>
-                    </View>
-                    {rep.todos && rep.todos.filter((todo) => todo.status === 'open').length > 0 && (
-                      <View style={styles.todoIndicator}>
-                        <Flag size={14} color="#0EA5E9" fill="#0EA5E9" />
-                      </View>
-                    )}
-                    <ContactToggleButton rep={rep} onPress={handleMarkContacted} />
-                  </Pressable>
-                ))}
-              </View>
+        {needsFollowUp.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <AlertCircle size={20} color="#EF4444" />
+              <Text style={styles.sectionTitle}>Urgent Follow-Ups</Text>
             </View>
-          )}
+            <View style={styles.sectionContent}>
+              {needsFollowUp.map((rep) => (
+                <Pressable
+                  key={rep.id}
+                  style={({ pressed }) => [
+                    styles.repItem,
+                    pressed && styles.repItemPressed,
+                  ]}
+                  onPress={() => router.push(`/rep/${rep.id}`)}
+                >
+                  <View style={styles.repAvatar}>
+                    <Text style={styles.repAvatarText}>
+                      {rep.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.repInfo}>
+                    <Text style={[styles.repName, { color: getNameColor(rep) }]}>{rep.name}</Text>
+                    <Text style={styles.repTime}>
+                      {getTimeSinceContact(rep)}
+                    </Text>
+                  </View>
+                  {rep.todos && rep.todos.filter(t => t.status === 'open').length > 0 && (
+                    <View style={styles.todoIndicator}>
+                      <Flag size={14} color="#0EA5E9" fill="#0EA5E9" />
+                    </View>
+                  )}
+                  <ContactToggleButton rep={rep} onPress={handleMarkContacted} />
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
 
-          {totalDisplayReps === 0 && (
-            <View style={styles.emptyState}>
-              <TrendingUp size={64} color="#D1D5DB" strokeWidth={1.5} />
-              <Text style={styles.emptyTitle}>No reps assigned yet</Text>
-              <Text style={styles.emptyDescription}>
-                Add a sales rep to begin tracking contact activity.
-              </Text>
+        {contactedToday.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <UserCheck size={20} color="#10B981" />
+              <Text style={styles.sectionTitle}>Contacted Today</Text>
             </View>
-          )}
-        </ScrollView>
-      )}
+            <View style={styles.sectionContent}>
+              {contactedToday.map((rep) => (
+                <Pressable
+                  key={rep.id}
+                  style={({ pressed }) => [
+                    styles.repItem,
+                    pressed && styles.repItemPressed,
+                  ]}
+                  onPress={() => router.push(`/rep/${rep.id}`)}
+                >
+                  <View style={styles.repAvatar}>
+                    <Text style={styles.repAvatarText}>
+                      {rep.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.repInfo}>
+                    <Text style={[styles.repName, { color: getNameColor(rep) }]}>{rep.name}</Text>
+                    <Text style={styles.repTime}>
+                      {getTimeSinceContact(rep)}
+                    </Text>
+                  </View>
+                  {rep.todos && rep.todos.filter(t => t.status === 'open').length > 0 && (
+                    <View style={styles.todoIndicator}>
+                      <Flag size={14} color="#0EA5E9" fill="#0EA5E9" />
+                    </View>
+                  )}
+                  <ContactToggleButton rep={rep} onPress={handleMarkContacted} />
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {reps.length === 0 && (
+          <View style={styles.emptyState}>
+            <TrendingUp size={64} color="#D1D5DB" strokeWidth={1.5} />
+            <Text style={styles.emptyTitle}>Welcome to Sales Team Manager</Text>
+            <Text style={styles.emptyDescription}>
+              Add your first sales rep to start tracking contacts and meetings
+            </Text>
+          </View>
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -764,192 +553,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '500' as const,
-  },
-  adminScrollContent: {
-    padding: 16,
-    paddingBottom: 32,
-    gap: 24,
-  },
-  adminHeroCard: {
-    borderRadius: 24,
-    padding: 24,
-    gap: 24,
-    shadowColor: '#1E1B4B',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.3,
-    shadowRadius: 24,
-    elevation: 12,
-  },
-  adminHeroHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  adminHeroIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  adminHeroTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: '#FFFFFF',
-  },
-  adminHeroSubtitle: {
-    fontSize: 14,
-    color: '#E0E7FF',
-    marginTop: 4,
-  },
-  adminHeroMetrics: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  adminHeroMetric: {
-    flex: 1,
-    borderRadius: 16,
-    backgroundColor: 'rgba(15,23,42,0.3)',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-  },
-  adminHeroMetricLabel: {
-    fontSize: 12,
-    fontWeight: '600' as const,
-    color: '#C7D2FE',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-  },
-  adminHeroMetricValue: {
-    fontSize: 22,
-    fontWeight: '700' as const,
-    color: '#FFFFFF',
-    marginTop: 6,
-  },
-  leaderListSection: {
-    gap: 16,
-  },
-  leaderListTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: '#0F172A',
-  },
-  leaderCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-    gap: 18,
-    shadowColor: '#1F2937',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    elevation: 6,
-  },
-  leaderCardPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
-  },
-  leaderCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  leaderAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#EEF2FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  leaderAvatarText: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: '#4338CA',
-  },
-  leaderInfo: {
-    flex: 1,
-    marginHorizontal: 16,
-  },
-  leaderName: {
-    fontSize: 17,
-    fontWeight: '600' as const,
-    color: '#111827',
-  },
-  leaderMeta: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 4,
-  },
-  leaderMetricsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  leaderMetricPill: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-  },
-  leaderMetricLabel: {
-    fontSize: 12,
-    fontWeight: '600' as const,
-    color: '#64748B',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  leaderMetricValue: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: '#0EA5E9',
-    marginTop: 6,
-  },
-  adminEmptyState: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 18,
-    padding: 24,
-    alignItems: 'center',
-    gap: 8,
-  },
-  adminEmptyTitle: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: '#0F172A',
-  },
-  adminEmptySubtitle: {
-    fontSize: 14,
-    color: '#64748B',
-    textAlign: 'center',
-  },
-  viewingBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#E0F2FE',
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    marginBottom: 16,
-  },
-  viewingBannerPressed: {
-    opacity: 0.7,
-  },
-  viewingBannerTextWrapper: {
-    flexDirection: 'column',
-  },
-  viewingBannerLabel: {
-    fontSize: 12,
-    fontWeight: '600' as const,
-    color: '#0EA5E9',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-  },
-  viewingBannerValue: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: '#0F172A',
   },
   todoIndicator: {
     width: 28,

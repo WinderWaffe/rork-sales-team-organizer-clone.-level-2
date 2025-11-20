@@ -1,8 +1,8 @@
 import { Stack, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AlertCircle, Check, ChevronRight, Edit, Flag, Plus, TrendingUp, UserCheck, UserPlus, Users } from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
+import { AlertCircle, Check, ChevronRight, Edit, Flag, Settings, TrendingUp, UserCheck, UserPlus, Users } from 'lucide-react-native';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import {
@@ -89,12 +89,26 @@ function ContactToggleButton({ rep, onPress }: { rep: SalesRep; onPress: (repId:
 }
 
 export default function DashboardScreen() {
-  const { isAdmin, leaders } = useUser();
-  const { reps, toggleContactedStatus, calculateDailyContactPercentage, calculateWeeklyContactPercentage, contactLogs } = useSalesTeam();
+  const { isAdmin, logout } = useUser();
+  const { reps, toggleContactedStatus, calculateDailyContactPercentage, calculateWeeklyContactPercentage } = useSalesTeam();
   const needsFollowUp = useNeedsFollowUp();
   const contactedToday = useContactedToday();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+
+  const handleLogoutPress = useCallback(() => {
+    Alert.alert('Logout', 'Sign out to switch accounts?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: () => {
+          logout();
+          router.replace('/login');
+        },
+      },
+    ]);
+  }, [logout, router]);
 
   const dailyContactPercentage = useMemo(() => {
     const value = calculateDailyContactPercentage();
@@ -178,6 +192,20 @@ export default function DashboardScreen() {
             backgroundColor: '#FFFFFF',
           },
           headerShadowVisible: false,
+          headerLeft: () => (
+            <Pressable
+              onPress={handleLogoutPress}
+              style={({ pressed }) => [
+                styles.headerLeftButton,
+                pressed && styles.headerLeftButtonPressed,
+              ]}
+              testID="leader-logout-gear"
+              accessibilityLabel="Open logout options"
+              accessibilityRole="button"
+            >
+              <Settings size={22} color="#111827" />
+            </Pressable>
+          ),
         }}
       />
 
@@ -685,6 +713,13 @@ const styles = StyleSheet.create({
   headerButtonPressed: {
     opacity: 0.6,
   },
+  headerLeftButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  headerLeftButtonPressed: {
+    opacity: 0.6,
+  },
   leaderEditButton: {
     padding: 8,
     marginRight: 4,
@@ -804,7 +839,7 @@ const styles = StyleSheet.create({
 
 function AdminDashboardView() {
   const router = useRouter();
-  const { leaders, createUser, updateUser, updateUserRole } = useUser();
+  const { leaders, createUser, updateUser, updateUserRole, logout } = useUser();
   const { reps: allReps, contactLogs } = useSalesTeam();
   const [createUserModalVisible, setCreateUserModalVisible] = useState(false);
   const [editUserModalVisible, setEditUserModalVisible] = useState(false);
@@ -847,6 +882,20 @@ function AdminDashboardView() {
     });
   }, [leaders, allReps, contactLogs]);
 
+  const handleLogoutPress = useCallback(() => {
+    Alert.alert('Logout', 'Sign out to switch accounts?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: () => {
+          logout();
+          router.replace('/login');
+        },
+      },
+    ]);
+  }, [logout, router]);
+
   return (
     <View style={styles.adminContainer}>
       <Stack.Screen
@@ -857,6 +906,20 @@ function AdminDashboardView() {
             backgroundColor: '#FFFFFF',
           },
           headerShadowVisible: false,
+          headerLeft: () => (
+            <Pressable
+              onPress={handleLogoutPress}
+              style={({ pressed }) => [
+                styles.headerLeftButton,
+                pressed && styles.headerLeftButtonPressed,
+              ]}
+              testID="admin-logout-gear"
+              accessibilityLabel="Open logout options"
+              accessibilityRole="button"
+            >
+              <Settings size={22} color="#111827" />
+            </Pressable>
+          ),
           headerRight: () => (
             <Pressable
               onPress={() => setCreateUserModalVisible(true)}
@@ -864,6 +927,7 @@ function AdminDashboardView() {
                 styles.headerButton,
                 pressed && styles.headerButtonPressed,
               ]}
+              testID="add-leader-button"
             >
               <UserPlus size={24} color="#0EA5E9" />
             </Pressable>

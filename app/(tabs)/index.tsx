@@ -1,9 +1,10 @@
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AlertCircle, Check, ChevronRight, Edit, Flag, Settings, TrendingUp, UserCheck, UserPlus, Users } from 'lucide-react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   useNeedsFollowUp,
@@ -89,7 +90,7 @@ function ContactToggleButton({ rep, onPress }: { rep: SalesRep; onPress: (repId:
 }
 
 export default function DashboardScreen() {
-  const { isAdmin, logout } = useUser();
+  const { currentUser, isAdmin, logout } = useUser();
   const { reps, toggleContactedStatus, calculateDailyContactPercentage, calculateWeeklyContactPercentage } = useSalesTeam();
   const needsFollowUp = useNeedsFollowUp();
   const contactedToday = useContactedToday();
@@ -183,33 +184,31 @@ export default function DashboardScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: 'Dashboard',
-          headerStyle: {
-            backgroundColor: '#FFFFFF',
-          },
-          headerShadowVisible: false,
-          headerLeft: () => (
-            <Pressable
-              onPress={handleLogoutPress}
-              style={({ pressed }) => [
-                styles.headerLeftButton,
-                pressed && styles.headerLeftButtonPressed,
-              ]}
-              testID="leader-logout-gear"
-              accessibilityLabel="Open logout options"
-              accessibilityRole="button"
-            >
-              <Settings size={22} color="#111827" />
-            </Pressable>
-          ),
-        }}
-      />
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.container}>
+        <View style={styles.topBar}>
+          <Pressable
+            onPress={handleLogoutPress}
+            style={({ pressed }) => [
+              styles.iconButton,
+              pressed && styles.iconButtonPressed,
+            ]}
+            testID="leader-logout-gear"
+            accessibilityLabel="Open logout options"
+            accessibilityRole="button"
+          >
+            <Settings size={22} color="#111827" />
+          </Pressable>
+          <View style={styles.topBarTextGroup}>
+            <Text style={styles.topBarEyebrow}>Pipeline Pulse</Text>
+            <Text style={styles.topBarTitle}>
+              {currentUser?.name ? `Hi, ${currentUser.name}` : 'Leader Dashboard'}
+            </Text>
+          </View>
+          <View style={styles.topBarRightPlaceholder} />
+        </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
         {error && (
           <View style={styles.errorBanner}>
             <AlertCircle size={16} color="#FFFFFF" />
@@ -361,8 +360,9 @@ export default function DashboardScreen() {
             </Text>
           </View>
         )}
-      </ScrollView>
-    </View>
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -897,45 +897,39 @@ function AdminDashboardView() {
   }, [logout, router]);
 
   return (
-    <View style={styles.adminContainer}>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: 'Admin Dashboard',
-          headerStyle: {
-            backgroundColor: '#FFFFFF',
-          },
-          headerShadowVisible: false,
-          headerLeft: () => (
-            <Pressable
-              onPress={handleLogoutPress}
-              style={({ pressed }) => [
-                styles.headerLeftButton,
-                pressed && styles.headerLeftButtonPressed,
-              ]}
-              testID="admin-logout-gear"
-              accessibilityLabel="Open logout options"
-              accessibilityRole="button"
-            >
-              <Settings size={22} color="#111827" />
-            </Pressable>
-          ),
-          headerRight: () => (
-            <Pressable
-              onPress={() => setCreateUserModalVisible(true)}
-              style={({ pressed }) => [
-                styles.headerButton,
-                pressed && styles.headerButtonPressed,
-              ]}
-              testID="add-leader-button"
-            >
-              <UserPlus size={24} color="#0EA5E9" />
-            </Pressable>
-          ),
-        }}
-      />
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.adminContainer}>
+        <View style={styles.topBar}>
+          <Pressable
+            onPress={handleLogoutPress}
+            style={({ pressed }) => [
+              styles.iconButton,
+              pressed && styles.iconButtonPressed,
+            ]}
+            testID="admin-logout-gear"
+            accessibilityLabel="Open logout options"
+            accessibilityRole="button"
+          >
+            <Settings size={22} color="#111827" />
+          </Pressable>
+          <View style={styles.topBarTextGroup}>
+            <Text style={styles.topBarEyebrow}>Control Center</Text>
+            <Text style={styles.topBarTitle}>Admin Dashboard</Text>
+          </View>
+          <Pressable
+            onPress={() => setCreateUserModalVisible(true)}
+            style={({ pressed }) => [
+              styles.topBarActionButton,
+              pressed && styles.buttonPressed,
+            ]}
+            testID="add-leader-button"
+          >
+            <UserPlus size={18} color="#FFFFFF" />
+            <Text style={styles.topBarActionText}>Add Leader</Text>
+          </Pressable>
+        </View>
 
-      <ScrollView contentContainerStyle={styles.adminScrollContent}>
+        <ScrollView contentContainerStyle={styles.adminScrollContent}>
         <View style={styles.adminHeader}>
           <Text style={styles.adminTitle}>Team Leaders</Text>
           <Text style={styles.adminSubtitle}>
@@ -1010,7 +1004,7 @@ function AdminDashboardView() {
             </Pressable>
           ))
         )}
-      </ScrollView>
+        </ScrollView>
 
       <Modal
         visible={createUserModalVisible}
@@ -1217,6 +1211,7 @@ function AdminDashboardView() {
           </Pressable>
         </KeyboardAvoidingView>
       </Modal>
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }

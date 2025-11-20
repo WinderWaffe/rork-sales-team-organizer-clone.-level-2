@@ -844,7 +844,9 @@ function AdminDashboardView() {
   const leaderStats = useMemo(() => {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
-    const weekStart = new Date(todayStart);
+
+    const weekStart = new Date();
+    weekStart.setHours(0, 0, 0, 0);
     weekStart.setDate(weekStart.getDate() - 6);
 
     return leaders.map((leader) => {
@@ -855,15 +857,22 @@ function AdminDashboardView() {
         return {
           leaderId: leader.id,
           leaderName: leader.name,
-          totalReps,
+          totalReps: 0,
+          repsContactedToday: 0,
+          repsContactedThisWeek: 0,
+          repsNotContactedThisWeek: 0,
           dailyCoveragePercent: 0,
           weeklyCoveragePercent: 0,
-          repsNotContactedThisWeek: 0,
           weeklyConsistencyScore: 0,
         };
       }
 
+      const leaderRepIds = new Set(leaderReps.map((rep) => rep.id));
+
       const leaderLogsThisWeek = contactLogs.filter((log) => {
+        if (!leaderRepIds.has(log.repId)) {
+          return false;
+        }
         if (log.leaderId !== leader.id) {
           return false;
         }
@@ -874,27 +883,32 @@ function AdminDashboardView() {
         return timestamp >= weekStart;
       });
 
-      const dailyContactedSet = new Set<string>();
-      for (const log of contactLogs) {
+      const logsToday = contactLogs.filter((log) => {
+        if (!leaderRepIds.has(log.repId)) {
+          return false;
+        }
         if (log.leaderId !== leader.id) {
-          continue;
+          return false;
         }
         const timestamp = new Date(log.timestamp);
         if (Number.isNaN(timestamp.getTime())) {
-          continue;
+          return false;
         }
-        if (timestamp >= todayStart) {
-          dailyContactedSet.add(log.repId);
-        }
-      }
+        return timestamp >= todayStart;
+      });
 
-      const weeklyContactedSet = new Set<string>();
+      const repsContactedTodaySet = new Set<string>();
+      for (const log of logsToday) {
+        repsContactedTodaySet.add(log.repId);
+      }
+      const repsContactedToday = repsContactedTodaySet.size;
+
+      const repsContactedThisWeekSet = new Set<string>();
       for (const log of leaderLogsThisWeek) {
-        weeklyContactedSet.add(log.repId);
+        repsContactedThisWeekSet.add(log.repId);
       }
+      const repsContactedThisWeek = repsContactedThisWeekSet.size;
 
-      const repsContactedToday = dailyContactedSet.size;
-      const repsContactedThisWeek = weeklyContactedSet.size;
       const repsNotContactedThisWeek = Math.max(0, totalReps - repsContactedThisWeek);
 
       const repDayKeys = new Set<string>();
@@ -904,9 +918,9 @@ function AdminDashboardView() {
           continue;
         }
         dayDate.setHours(0, 0, 0, 0);
-        repDayKeys.add(`${log.repId}|${dayDate.toISOString()}`);
+        const key = `${log.repId}|${dayDate.toISOString()}`;
+        repDayKeys.add(key);
       }
-
       const repDaysContacted = repDayKeys.size;
       const repDaysTotal = totalReps * 7;
       const weeklyConsistencyScore = repDaysTotal === 0 ? 0 : Math.round((repDaysContacted / repDaysTotal) * 100);
@@ -918,9 +932,11 @@ function AdminDashboardView() {
         leaderId: leader.id,
         leaderName: leader.name,
         totalReps,
+        repsContactedToday,
+        repsContactedThisWeek,
+        repsNotContactedThisWeek,
         dailyCoveragePercent,
         weeklyCoveragePercent,
-        repsNotContactedThisWeek,
         weeklyConsistencyScore,
       };
     });
@@ -1016,9 +1032,9 @@ function AdminDashboardView() {
                   <Text style={styles.leaderStatValue}>{stat.totalReps}</Text>
                 </View>
                 <View style={styles.leaderStatBox}>
-                  <Text style={styles.leaderStatLabel}>Weekly Score</Text>
+                  <Text style={styles.leaderStatLabel}>Contacted This Week</Text>
                   <Text style={[styles.leaderStatValue, styles.leaderStatValueHighlight]}>
-                    {stat.weeklyConsistencyScore}/100
+                    {stat.repsContactedThisWeek} / {stat.totalReps}
                   </Text>
                 </View>
               </View>
@@ -1031,6 +1047,9 @@ function AdminDashboardView() {
                 </Text>
                 <Text style={styles.leaderScoreText}>
                   Not contacted this week: {stat.repsNotContactedThisWeek}
+                </Text>
+                <Text style={styles.leaderScoreText}>
+                  Weekly score: {stat.weeklyConsistencyScore}/100
                 </Text>
               </View>
             </Pressable>

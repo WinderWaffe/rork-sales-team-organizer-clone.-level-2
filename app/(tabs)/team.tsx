@@ -1,6 +1,6 @@
 import { Stack, useRouter } from 'expo-router';
 import * as Contacts from 'expo-contacts';
-import { AlertCircle, BookUser, Instagram, Plus, UserCircle } from 'lucide-react-native';
+import { AlertCircle, BookUser, Instagram, Plus, Settings, UserCircle } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -17,15 +17,26 @@ import {
 } from 'react-native';
 
 import { useSalesTeam } from '@/contexts/sales-team-context';
+import { useUser } from '@/contexts/user-context';
 
 export default function TeamScreen() {
   const { reps, addRep } = useSalesTeam();
+  const { logout } = useUser();
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
   const [newRepName, setNewRepName] = useState('');
   const [newRepPhone, setNewRepPhone] = useState('');
   const [newRepInstagram, setNewRepInstagram] = useState('');
   const [newRepNotes, setNewRepNotes] = useState('');
+
+  const handleLogout = () => {
+    try {
+      logout();
+      router.replace('/login');
+    } catch (error) {
+      console.error('Failed to logout:', error);
+    }
+  };
 
   const handleAddRep = () => {
     if (newRepName.trim()) {
@@ -132,6 +143,18 @@ export default function TeamScreen() {
             backgroundColor: '#FFFFFF',
           },
           headerShadowVisible: false,
+          headerLeft: () => (
+            <Pressable
+              onPress={handleLogout}
+              style={({ pressed }) => [
+                styles.headerIconButton,
+                pressed && styles.headerIconButtonPressed,
+              ]}
+              android_ripple={{ color: '#E5E7EB', borderless: true }}
+            >
+              <Settings size={20} color="#111827" />
+            </Pressable>
+          ),
           headerRight: () => (
             <Pressable
               onPress={() => setModalVisible(true)}
@@ -345,6 +368,15 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   addButtonPressed: {
+    opacity: 0.6,
+  },
+  headerIconButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginLeft: 8,
+    borderRadius: 999,
+  },
+  headerIconButtonPressed: {
     opacity: 0.6,
   },
   emptyState: {

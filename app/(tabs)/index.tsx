@@ -1,10 +1,9 @@
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AlertCircle, Check, ChevronRight, Edit, Flag, Settings, TrendingUp, UserCheck, UserPlus, Users } from 'lucide-react-native';
-import React, { useCallback, useMemo, useState } from 'react';
+import { AlertCircle, Check, ChevronRight, Edit, Flag, Plus, TrendingUp, UserCheck, UserPlus, Users } from 'lucide-react-native';
+import React, { useMemo, useState } from 'react';
 import { Alert, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   useNeedsFollowUp,
@@ -90,26 +89,12 @@ function ContactToggleButton({ rep, onPress }: { rep: SalesRep; onPress: (repId:
 }
 
 export default function DashboardScreen() {
-  const { currentUser, isAdmin, logout } = useUser();
-  const { reps, toggleContactedStatus, calculateDailyContactPercentage, calculateWeeklyContactPercentage } = useSalesTeam();
+  const { isAdmin, leaders } = useUser();
+  const { reps, toggleContactedStatus, calculateDailyContactPercentage, calculateWeeklyContactPercentage, contactLogs } = useSalesTeam();
   const needsFollowUp = useNeedsFollowUp();
   const contactedToday = useContactedToday();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-
-  const handleLogoutPress = useCallback(() => {
-    Alert.alert('Logout', 'Sign out to switch accounts?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: () => {
-          logout();
-          router.replace('/login');
-        },
-      },
-    ]);
-  }, [logout, router]);
 
   const dailyContactPercentage = useMemo(() => {
     const value = calculateDailyContactPercentage();
@@ -184,31 +169,19 @@ export default function DashboardScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <View style={styles.container}>
-        <View style={styles.topBar}>
-          <Pressable
-            onPress={handleLogoutPress}
-            style={({ pressed }) => [
-              styles.iconButton,
-              pressed && styles.iconButtonPressed,
-            ]}
-            testID="leader-logout-gear"
-            accessibilityLabel="Open logout options"
-            accessibilityRole="button"
-          >
-            <Settings size={22} color="#111827" />
-          </Pressable>
-          <View style={styles.topBarTextGroup}>
-            <Text style={styles.topBarEyebrow}>Pipeline Pulse</Text>
-            <Text style={styles.topBarTitle}>
-              {currentUser?.name ? `Hi, ${currentUser.name}` : 'Leader Dashboard'}
-            </Text>
-          </View>
-          <View style={styles.topBarRightPlaceholder} />
-        </View>
+    <View style={styles.container}>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: 'Dashboard',
+          headerStyle: {
+            backgroundColor: '#FFFFFF',
+          },
+          headerShadowVisible: false,
+        }}
+      />
 
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         {error && (
           <View style={styles.errorBanner}>
             <AlertCircle size={16} color="#FFFFFF" />
@@ -360,9 +333,8 @@ export default function DashboardScreen() {
             </Text>
           </View>
         )}
-        </ScrollView>
-      </View>
-    </SafeAreaView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -374,75 +346,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     paddingBottom: 32,
-  },
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 16,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  iconButtonPressed: {
-    opacity: 0.7,
-  },
-  topBarTextGroup: {
-    flex: 1,
-    marginHorizontal: 16,
-  },
-  topBarEyebrow: {
-    fontSize: 12,
-    fontWeight: '600' as const,
-    color: '#6B7280',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  topBarTitle: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: '#111827',
-    letterSpacing: -0.2,
-  },
-  topBarRightPlaceholder: {
-    width: 44,
-    height: 44,
-  },
-  topBarActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: '#0EA5E9',
-    shadowColor: '#0EA5E9',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  topBarActionText: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    color: '#FFFFFF',
   },
   performanceRow: {
     flexDirection: 'row',
@@ -782,13 +685,6 @@ const styles = StyleSheet.create({
   headerButtonPressed: {
     opacity: 0.6,
   },
-  headerLeftButton: {
-    padding: 4,
-    marginLeft: 8,
-  },
-  headerLeftButtonPressed: {
-    opacity: 0.6,
-  },
   leaderEditButton: {
     padding: 8,
     marginRight: 4,
@@ -908,7 +804,7 @@ const styles = StyleSheet.create({
 
 function AdminDashboardView() {
   const router = useRouter();
-  const { leaders, createUser, updateUser, updateUserRole, logout } = useUser();
+  const { leaders, createUser, updateUser, updateUserRole } = useUser();
   const { reps: allReps, contactLogs } = useSalesTeam();
   const [createUserModalVisible, setCreateUserModalVisible] = useState(false);
   const [editUserModalVisible, setEditUserModalVisible] = useState(false);
@@ -951,54 +847,31 @@ function AdminDashboardView() {
     });
   }, [leaders, allReps, contactLogs]);
 
-  const handleLogoutPress = useCallback(() => {
-    Alert.alert('Logout', 'Sign out to switch accounts?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: () => {
-          logout();
-          router.replace('/login');
-        },
-      },
-    ]);
-  }, [logout, router]);
-
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <View style={styles.adminContainer}>
-        <View style={styles.topBar}>
-          <Pressable
-            onPress={handleLogoutPress}
-            style={({ pressed }) => [
-              styles.iconButton,
-              pressed && styles.iconButtonPressed,
-            ]}
-            testID="admin-logout-gear"
-            accessibilityLabel="Open logout options"
-            accessibilityRole="button"
-          >
-            <Settings size={22} color="#111827" />
-          </Pressable>
-          <View style={styles.topBarTextGroup}>
-            <Text style={styles.topBarEyebrow}>Control Center</Text>
-            <Text style={styles.topBarTitle}>Admin Dashboard</Text>
-          </View>
-          <Pressable
-            onPress={() => setCreateUserModalVisible(true)}
-            style={({ pressed }) => [
-              styles.topBarActionButton,
-              pressed && styles.buttonPressed,
-            ]}
-            testID="add-leader-button"
-          >
-            <UserPlus size={18} color="#FFFFFF" />
-            <Text style={styles.topBarActionText}>Add Leader</Text>
-          </Pressable>
-        </View>
+    <View style={styles.adminContainer}>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: 'Admin Dashboard',
+          headerStyle: {
+            backgroundColor: '#FFFFFF',
+          },
+          headerShadowVisible: false,
+          headerRight: () => (
+            <Pressable
+              onPress={() => setCreateUserModalVisible(true)}
+              style={({ pressed }) => [
+                styles.headerButton,
+                pressed && styles.headerButtonPressed,
+              ]}
+            >
+              <UserPlus size={24} color="#0EA5E9" />
+            </Pressable>
+          ),
+        }}
+      />
 
-        <ScrollView contentContainerStyle={styles.adminScrollContent}>
+      <ScrollView contentContainerStyle={styles.adminScrollContent}>
         <View style={styles.adminHeader}>
           <Text style={styles.adminTitle}>Team Leaders</Text>
           <Text style={styles.adminSubtitle}>
@@ -1073,7 +946,7 @@ function AdminDashboardView() {
             </Pressable>
           ))
         )}
-        </ScrollView>
+      </ScrollView>
 
       <Modal
         visible={createUserModalVisible}
@@ -1280,7 +1153,6 @@ function AdminDashboardView() {
           </Pressable>
         </KeyboardAvoidingView>
       </Modal>
-      </View>
-    </SafeAreaView>
+    </View>
   );
 }

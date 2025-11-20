@@ -1,7 +1,7 @@
 import { Stack, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AlertCircle, Check, ChevronRight, Edit, Flag, Plus, TrendingUp, UserCheck, UserPlus, Users } from 'lucide-react-native';
+import { AlertCircle, Check, ChevronRight, Edit, Flag, Plus, Settings, TrendingUp, UserCheck, UserPlus, Users } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import { Alert, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -89,12 +89,21 @@ function ContactToggleButton({ rep, onPress }: { rep: SalesRep; onPress: (repId:
 }
 
 export default function DashboardScreen() {
-  const { isAdmin, leaders } = useUser();
+  const { isAdmin, leaders, logout } = useUser();
   const { reps, toggleContactedStatus, calculateDailyContactPercentage, calculateWeeklyContactPercentage, contactLogs } = useSalesTeam();
   const needsFollowUp = useNeedsFollowUp();
   const contactedToday = useContactedToday();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+
+  const handleLogout = () => {
+    try {
+      logout();
+      router.replace('/login');
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  };
 
   const dailyContactPercentage = useMemo(() => {
     const value = calculateDailyContactPercentage();
@@ -178,6 +187,18 @@ export default function DashboardScreen() {
             backgroundColor: '#FFFFFF',
           },
           headerShadowVisible: false,
+          headerLeft: () => (
+            <Pressable
+              onPress={handleLogout}
+              style={({ pressed }) => [
+                { paddingHorizontal: 12, paddingVertical: 8 },
+                pressed && { opacity: 0.5 },
+              ]}
+              testID="logout-gear-button"
+            >
+              <Settings size={20} color="#111827" />
+            </Pressable>
+          ),
         }}
       />
 

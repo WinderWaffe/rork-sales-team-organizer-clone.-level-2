@@ -833,7 +833,7 @@ const styles = StyleSheet.create({
 function AdminDashboardView() {
   const router = useRouter();
   const { leaders, createUser, updateUser, updateUserRole } = useUser();
-  const { reps: allReps, contactLogs } = useSalesTeam();
+  const { allReps, allContactLogs } = useSalesTeam();
   const [createUserModalVisible, setCreateUserModalVisible] = useState(false);
   const [editUserModalVisible, setEditUserModalVisible] = useState(false);
   const [newUserName, setNewUserName] = useState('');
@@ -869,7 +869,7 @@ function AdminDashboardView() {
 
       const leaderRepIds = new Set(leaderReps.map((rep) => rep.id));
 
-      const leaderLogsThisWeek = contactLogs.filter((log) => {
+      const leaderLogsThisWeek = allContactLogs.filter((log) => {
         if (!leaderRepIds.has(log.repId)) {
           return false;
         }
@@ -883,7 +883,7 @@ function AdminDashboardView() {
         return timestamp >= weekStart;
       });
 
-      const logsToday = contactLogs.filter((log) => {
+      const logsToday = allContactLogs.filter((log) => {
         if (!leaderRepIds.has(log.repId)) {
           return false;
         }
@@ -940,7 +940,7 @@ function AdminDashboardView() {
         weeklyConsistencyScore,
       };
     });
-  }, [leaders, allReps, contactLogs]);
+  }, [leaders, allReps, allContactLogs]);
 
   return (
     <View style={styles.adminContainer}>

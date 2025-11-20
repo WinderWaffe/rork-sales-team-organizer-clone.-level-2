@@ -47,6 +47,8 @@ export interface SalesTeamContextValue {
   reps: SalesRep[];
   todos: Todo[];
   contactLogs: ContactLog[];
+  allReps: SalesRep[];
+  allContactLogs: ContactLog[];
   addRep: (repData: AddRepInput) => void;
   updateRep: (id: string, updates: Partial<SalesRep>) => void;
   deleteRep: (id: string) => void;
@@ -712,6 +714,8 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
     reps: accessibleReps,
     todos: accessibleTodos,
     contactLogs: accessibleContactLogs,
+    allReps,
+    allContactLogs: contactLogs,
     addRep,
     updateRep,
     deleteRep,
@@ -733,11 +737,13 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
     accessibleReps,
     accessibleTodos,
     addContactLog,
+    allReps,
     addRep,
     addTodo,
     calculateDailyContactPercentage,
     calculateWeeklyContactPercentage,
     contactLogsQuery.isLoading,
+    contactLogs,
     deleteContactLog,
     deleteRep,
     deleteTodo,

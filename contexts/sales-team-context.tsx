@@ -271,25 +271,25 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
     }
 
     let nextState: SalesRep[] | null = null;
-    let error: Error | null = null;
+    let authorizationError: Error | null = null;
 
     setAllReps((previous) => {
       const target = previous.find((rep) => rep.id === repId);
       if (!target) {
-        error = new Error('Sales rep not found');
+        authorizationError = new Error('Sales rep not found');
         return previous;
       }
       if (!isAdmin && target.leaderId !== currentUser.id) {
-        error = new Error('You do not have permission to modify this sales rep');
+        authorizationError = new Error('You do not have permission to modify this sales rep');
         return previous;
       }
       nextState = apply(previous, target);
       return nextState;
     });
 
-    if (error) {
-      console.warn('[SalesTeam] Authorization failed', { repId, error: error.message });
-      throw error;
+    if (authorizationError) {
+      console.warn('[SalesTeam] Authorization failed', { repId });
+      throw authorizationError;
     }
 
     if (nextState) {
@@ -373,6 +373,42 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
     }
   }, [allTodos, contactLogs, syncContactLogs, syncTodos, withAuthorizedRepUpdate]);
 
+  const addContactLog = useCallback((repId: string, payload?: { leaderId?: string; timestamp?: string }) => {
+    if (!currentUser) {
+      console.warn('[SalesTeam] Cannot add contact log: no current user');
+      throw new Error('You must be logged in to add a contact log');
+    }
+
+    const rep = allReps.find((item) => item.id === repId);
+    if (!rep) {
+      throw new Error('Sales rep not found');
+    }
+    const resolvedLeaderId = payload?.leaderId ?? currentUser.id;
+    if (!isAdmin) {
+      if (resolvedLeaderId !== currentUser.id) {
+        throw new Error('Leaders can only log their own activity');
+      }
+      if (rep.leaderId !== currentUser.id) {
+        throw new Error('You do not have permission to log activity for this sales rep');
+      }
+    }
+
+    const newLog: ContactLog = {
+      id: `${Date.now()}-${Math.random()}`,
+      repId,
+      leaderId: resolvedLeaderId,
+      timestamp: payload?.timestamp ?? new Date().toISOString(),
+    };
+
+    console.log('[SalesTeam] Adding contact log', { repId, leaderId: resolvedLeaderId });
+
+    setContactLogs((existing) => {
+      const updated = [...existing, newLog].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      syncContactLogs(updated);
+      return updated;
+    });
+  }, [allReps, currentUser, isAdmin, syncContactLogs]);
+
   const toggleContactedStatus = useCallback((id: string, currentContactedToday: boolean) => {
     return new Promise<boolean>((resolve, reject) => {
       const existingTimer = debounceTimers.current.get(id);
@@ -401,6 +437,7 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
                 contacted_today: true,
                 lastContactDate: now,
               };
+              addContactLog(id);
             }
             const updated = previous.map((rep) => (rep.id === id ? updatedRep : rep));
             return updated;
@@ -414,7 +451,7 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
 
       debounceTimers.current.set(id, timer);
     });
-  }, [withAuthorizedRepUpdate]);
+  }, [addContactLog, withAuthorizedRepUpdate]);
 
   const updateLastContact = useCallback((id: string) => {
     withAuthorizedRepUpdate(id, (previous, target) => {
@@ -569,42 +606,6 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
       });
     }
   }, [syncTodos, withAuthorizedRepUpdate]);
-
-  const addContactLog = useCallback((repId: string, payload?: { leaderId?: string; timestamp?: string }) => {
-    if (!currentUser) {
-      console.warn('[SalesTeam] Cannot add contact log: no current user');
-      throw new Error('You must be logged in to add a contact log');
-    }
-
-    const rep = allReps.find((item) => item.id === repId);
-    if (!rep) {
-      throw new Error('Sales rep not found');
-    }
-    const resolvedLeaderId = payload?.leaderId ?? currentUser.id;
-    if (!isAdmin) {
-      if (resolvedLeaderId !== currentUser.id) {
-        throw new Error('Leaders can only log their own activity');
-      }
-      if (rep.leaderId !== currentUser.id) {
-        throw new Error('You do not have permission to log activity for this sales rep');
-      }
-    }
-
-    const newLog: ContactLog = {
-      id: `${Date.now()}-${Math.random()}`,
-      repId,
-      leaderId: resolvedLeaderId,
-      timestamp: payload?.timestamp ?? new Date().toISOString(),
-    };
-
-    console.log('[SalesTeam] Adding contact log', { repId, leaderId: resolvedLeaderId });
-
-    setContactLogs((existing) => {
-      const updated = [...existing, newLog].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      syncContactLogs(updated);
-      return updated;
-    });
-  }, [allReps, currentUser, isAdmin, syncContactLogs]);
 
   const deleteContactLog = useCallback((logId: string) => {
     if (!currentUser) {

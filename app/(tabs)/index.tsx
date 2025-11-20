@@ -821,6 +821,13 @@ const styles = StyleSheet.create({
   roleButtonTextActive: {
     color: '#FFFFFF',
   },
+  leaderScoreRow: {
+    marginTop: 8,
+  },
+  leaderScoreText: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
 });
 
 function AdminDashboardView() {
@@ -835,35 +842,86 @@ function AdminDashboardView() {
   const [editingUser, setEditingUser] = useState<{ id: string; name: string; email: string; role: 'leader' | 'admin' } | null>(null);
 
   const leaderStats = useMemo(() => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const weekStart = new Date(todayStart);
+    weekStart.setDate(weekStart.getDate() - 6);
+
     return leaders.map((leader) => {
       const leaderReps = allReps.filter((rep) => rep.leaderId === leader.id);
       const totalReps = leaderReps.length;
 
-      const weekStart = new Date();
-      weekStart.setHours(0, 0, 0, 0);
-      weekStart.setDate(weekStart.getDate() - 6);
+      if (totalReps === 0) {
+        return {
+          leaderId: leader.id,
+          leaderName: leader.name,
+          totalReps,
+          dailyCoveragePercent: 0,
+          weeklyCoveragePercent: 0,
+          repsNotContactedThisWeek: 0,
+          weeklyConsistencyScore: 0,
+        };
+      }
 
-      const contactedRepIds = new Set<string>();
+      const leaderLogsThisWeek = contactLogs.filter((log) => {
+        if (log.leaderId !== leader.id) {
+          return false;
+        }
+        const timestamp = new Date(log.timestamp);
+        if (Number.isNaN(timestamp.getTime())) {
+          return false;
+        }
+        return timestamp >= weekStart;
+      });
+
+      const dailyContactedSet = new Set<string>();
       for (const log of contactLogs) {
         if (log.leaderId !== leader.id) {
           continue;
         }
-        const logTime = new Date(log.timestamp);
-        if (Number.isNaN(logTime.getTime())) {
+        const timestamp = new Date(log.timestamp);
+        if (Number.isNaN(timestamp.getTime())) {
           continue;
         }
-        if (logTime >= weekStart) {
-          contactedRepIds.add(log.repId);
+        if (timestamp >= todayStart) {
+          dailyContactedSet.add(log.repId);
         }
       }
 
-      const contactedThisWeek = contactedRepIds.size;
+      const weeklyContactedSet = new Set<string>();
+      for (const log of leaderLogsThisWeek) {
+        weeklyContactedSet.add(log.repId);
+      }
+
+      const repsContactedToday = dailyContactedSet.size;
+      const repsContactedThisWeek = weeklyContactedSet.size;
+      const repsNotContactedThisWeek = Math.max(0, totalReps - repsContactedThisWeek);
+
+      const repDayKeys = new Set<string>();
+      for (const log of leaderLogsThisWeek) {
+        const dayDate = new Date(log.timestamp);
+        if (Number.isNaN(dayDate.getTime())) {
+          continue;
+        }
+        dayDate.setHours(0, 0, 0, 0);
+        repDayKeys.add(`${log.repId}|${dayDate.toISOString()}`);
+      }
+
+      const repDaysContacted = repDayKeys.size;
+      const repDaysTotal = totalReps * 7;
+      const weeklyConsistencyScore = repDaysTotal === 0 ? 0 : Math.round((repDaysContacted / repDaysTotal) * 100);
+
+      const dailyCoveragePercent = Math.round((repsContactedToday / totalReps) * 100);
+      const weeklyCoveragePercent = Math.round((repsContactedThisWeek / totalReps) * 100);
 
       return {
         leaderId: leader.id,
         leaderName: leader.name,
         totalReps,
-        contactedThisWeek,
+        dailyCoveragePercent,
+        weeklyCoveragePercent,
+        repsNotContactedThisWeek,
+        weeklyConsistencyScore,
       };
     });
   }, [leaders, allReps, contactLogs]);
@@ -958,11 +1016,22 @@ function AdminDashboardView() {
                   <Text style={styles.leaderStatValue}>{stat.totalReps}</Text>
                 </View>
                 <View style={styles.leaderStatBox}>
-                  <Text style={styles.leaderStatLabel}>Contacted This Week</Text>
+                  <Text style={styles.leaderStatLabel}>Weekly Score</Text>
                   <Text style={[styles.leaderStatValue, styles.leaderStatValueHighlight]}>
-                    {stat.contactedThisWeek}
+                    {stat.weeklyConsistencyScore}/100
                   </Text>
                 </View>
+              </View>
+              <View style={styles.leaderScoreRow}>
+                <Text style={styles.leaderScoreText}>
+                  Daily: {stat.dailyCoveragePercent}% contacted today
+                </Text>
+                <Text style={styles.leaderScoreText}>
+                  Weekly: {stat.weeklyCoveragePercent}% contacted this week
+                </Text>
+                <Text style={styles.leaderScoreText}>
+                  Not contacted this week: {stat.repsNotContactedThisWeek}
+                </Text>
               </View>
             </Pressable>
           ))

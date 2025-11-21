@@ -467,7 +467,8 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
       } : rep));
       return updated;
     });
-  }, [withAuthorizedRepUpdate]);
+    addContactLog(id);
+  }, [addContactLog, withAuthorizedRepUpdate]);
 
   const addTodo = useCallback((repId: string, todoData: { title: string; description?: string; dueDate?: string }) => {
     let createdTodo: Todo | null = null;

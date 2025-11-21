@@ -858,6 +858,39 @@ function AdminDashboardView() {
   const [newUserPassword, setNewUserPassword] = useState('');
   const [editingUser, setEditingUser] = useState<{ id: string; name: string; email: string; role: 'leader' | 'admin' } | null>(null);
 
+  const requestDeleteLeader = () => {
+    if (!editingUser) {
+      return;
+    }
+    const targetUserId = editingUser.id;
+    const finalizeDelete = () => {
+      deleteUser(targetUserId);
+      setEditUserModalVisible(false);
+      setEditingUser(null);
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmFn = (globalThis as { confirm?: (message?: string) => boolean }).confirm;
+      if (!confirmFn || confirmFn('Are you sure you want to delete this profile?')) {
+        finalizeDelete();
+      }
+      return;
+    }
+
+    Alert.alert(
+      'Delete Leader',
+      'Are you sure you want to delete this profile?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: finalizeDelete,
+        },
+      ]
+    );
+  };
+
   const leaderStats = useMemo(() => {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -1280,27 +1313,7 @@ function AdminDashboardView() {
                   styles.deleteUserButton,
                   pressed && styles.deleteUserButtonPressed,
                 ]}
-                onPress={() => {
-                  if (!editingUser) {
-                    return;
-                  }
-                  Alert.alert(
-                    'Delete Leader',
-                    'Are you sure you want to delete this profile?',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Delete',
-                        style: 'destructive',
-                        onPress: () => {
-                          deleteUser(editingUser.id);
-                          setEditUserModalVisible(false);
-                          setEditingUser(null);
-                        },
-                      },
-                    ]
-                  );
-                }}
+                onPress={requestDeleteLeader}
               >
                 <Text style={styles.deleteUserButtonText}>Delete Leader</Text>
               </Pressable>

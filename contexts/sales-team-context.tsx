@@ -458,15 +458,22 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
   const updateLastContact = useCallback((id: string) => {
     withAuthorizedRepUpdate(id, (previous, target) => {
       const now = new Date().toISOString();
-      const updated = previous.map((rep) => (rep.id === id ? {
-        ...target,
-        lastContactDate: now,
-        last_contacted_at: now,
-        previous_last_contacted_at: target.last_contacted_at,
-        contacted_today: true,
-      } : rep));
+
+      const updated = previous.map((rep) =>
+        rep.id === id
+          ? {
+              ...target,
+              lastContactDate: now,
+              last_contacted_at: now,
+              previous_last_contacted_at: target.last_contacted_at,
+              contacted_today: true,
+            }
+          : rep,
+      );
+
       return updated;
     });
+
     addContactLog(id);
   }, [addContactLog, withAuthorizedRepUpdate]);
 

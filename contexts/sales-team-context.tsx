@@ -456,7 +456,10 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
   }, [addContactLog, withAuthorizedRepUpdate]);
 
   const updateLastContact = useCallback((id: string) => {
+    let updateSucceeded = false;
+
     withAuthorizedRepUpdate(id, (previous, target) => {
+      updateSucceeded = true;
       const now = new Date().toISOString();
 
       const updated = previous.map((rep) =>
@@ -474,7 +477,9 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
       return updated;
     });
 
-    addContactLog(id);
+    if (updateSucceeded) {
+      addContactLog(id);
+    }
   }, [addContactLog, withAuthorizedRepUpdate]);
 
   const addTodo = useCallback((repId: string, todoData: { title: string; description?: string; dueDate?: string }) => {

@@ -828,11 +828,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
   },
+  deleteUserButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteUserButtonPressed: {
+    opacity: 0.8,
+  },
+  deleteUserButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#EF4444',
+  },
 });
 
 function AdminDashboardView() {
   const router = useRouter();
-  const { leaders, createUser, updateUser, updateUserRole } = useUser();
+  const { leaders, createUser, updateUser, updateUserRole, deleteUser } = useUser();
   const { allReps, allContactLogs } = useSalesTeam();
   const [createUserModalVisible, setCreateUserModalVisible] = useState(false);
   const [editUserModalVisible, setEditUserModalVisible] = useState(false);
@@ -1258,6 +1275,35 @@ function AdminDashboardView() {
                   <Text style={styles.createButtonText}>Save Changes</Text>
                 </Pressable>
               </View>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.deleteUserButton,
+                  pressed && styles.deleteUserButtonPressed,
+                ]}
+                onPress={() => {
+                  if (!editingUser) {
+                    return;
+                  }
+                  Alert.alert(
+                    'Delete Leader',
+                    'Are you sure you want to delete this profile?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: () => {
+                          deleteUser(editingUser.id);
+                          setEditUserModalVisible(false);
+                          setEditingUser(null);
+                        },
+                      },
+                    ]
+                  );
+                }}
+              >
+                <Text style={styles.deleteUserButtonText}>Delete Leader</Text>
+              </Pressable>
             </Pressable>
           </Pressable>
         </KeyboardAvoidingView>

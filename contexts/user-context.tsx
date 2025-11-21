@@ -26,6 +26,7 @@ export interface UserContextValue {
   login: (email: string, password: string) => AppUser | null;
   signup: (name: string, email: string, password: string) => AppUser | null;
   logout: () => void;
+  deleteUser: (userId: string) => void;
 }
 
 export const [UserProvider, useUser] = createContextHook<UserContextValue>(() => {
@@ -140,7 +141,18 @@ export const [UserProvider, useUser] = createContextHook<UserContextValue>(() =>
     console.log('[UserContext] User logged out');
   }, []);
 
-  return {
+  const deleteUser = useCallback((userId: string) => {
+    setUsers((prev) => prev.filter((user) => user.id !== userId));
+    setCurrentUserId((prev) => {
+      if (!prev) return prev;
+      if (prev === userId) {
+        return null;
+      }
+      return prev;
+    });
+  }, []);
+
+  const contextValue = useMemo(() => ({
     currentUser,
     isAdmin: currentUser?.role === 'admin',
     isLeader: currentUser?.role === 'leader',
@@ -157,5 +169,8 @@ export const [UserProvider, useUser] = createContextHook<UserContextValue>(() =>
     login,
     signup,
     logout,
-  };
+    deleteUser,
+  }), [admins, createUser, currentUser, deleteUser, getUserById, leaders, login, logout, setCurrentUser, setCurrentUserById, signup, updateUser, updateUserRole, users]);
+
+  return contextValue;
 });

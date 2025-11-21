@@ -385,7 +385,9 @@ export const [SalesTeamProvider, useSalesTeam] = createContextHook<SalesTeamCont
     if (!rep) {
       throw new Error('Sales rep not found');
     }
-    const resolvedLeaderId = payload?.leaderId ?? currentUser.id;
+    const resolvedLeaderId =
+      payload?.leaderId ??
+      (isAdmin ? rep.leaderId ?? currentUser.id : currentUser.id);
     if (!isAdmin) {
       if (resolvedLeaderId !== currentUser.id) {
         throw new Error('Leaders can only log their own activity');

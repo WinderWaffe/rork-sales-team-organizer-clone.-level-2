@@ -372,34 +372,36 @@ export default function LeaderViewScreen() {
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.performanceRow} testID="performance-metrics">
-          <View style={styles.performanceCardWrapper}>
-            <LinearGradient
-              colors={['#0EA5E9', '#2563EB']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.performanceCard}
-              testID="leader-daily-percentage-card"
-            >
-              <Text style={styles.performanceLabel}>Daily Contact Rate</Text>
-              <Text style={styles.performanceValue}>{Math.round(calculateDailyContactPercentage)}%</Text>
-              <Text style={styles.performanceDescription}>Reps contacted today</Text>
-            </LinearGradient>
+        {isAdmin && (
+          <View style={styles.performanceRow} testID="performance-metrics">
+            <View style={styles.performanceCardWrapper}>
+              <LinearGradient
+                colors={['#0EA5E9', '#2563EB']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.performanceCard}
+                testID="leader-daily-percentage-card"
+              >
+                <Text style={styles.performanceLabel}>Daily Contact Rate</Text>
+                <Text style={styles.performanceValue}>{Math.round(calculateDailyContactPercentage)}%</Text>
+                <Text style={styles.performanceDescription}>Reps contacted today</Text>
+              </LinearGradient>
+            </View>
+            <View style={styles.performanceCardWrapper}>
+              <LinearGradient
+                colors={['#10B981', '#047857']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.performanceCard}
+                testID="leader-weekly-percentage-card"
+              >
+                <Text style={styles.performanceLabel}>Weekly Reach</Text>
+                <Text style={styles.performanceValue}>{Math.round(calculateWeeklyContactPercentage)}%</Text>
+                <Text style={styles.performanceDescription}>Reps touched in 7 days</Text>
+              </LinearGradient>
+            </View>
           </View>
-          <View style={styles.performanceCardWrapper}>
-            <LinearGradient
-              colors={['#10B981', '#047857']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.performanceCard}
-              testID="leader-weekly-percentage-card"
-            >
-              <Text style={styles.performanceLabel}>Weekly Reach</Text>
-              <Text style={styles.performanceValue}>{Math.round(calculateWeeklyContactPercentage)}%</Text>
-              <Text style={styles.performanceDescription}>Reps touched in 7 days</Text>
-            </LinearGradient>
-          </View>
-        </View>
+        )}
 
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>

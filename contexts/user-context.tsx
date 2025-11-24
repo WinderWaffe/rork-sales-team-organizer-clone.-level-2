@@ -34,7 +34,7 @@ export interface UserContextValue {
 }
 
 export const [UserProvider, useUser] = createContextHook<UserContextValue>(() => {
-  const [users, setUsers] = useState<AppUser[]>(DEFAULT_USERS);
+  const [users, setUsers] = useState<AppUser[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
 
@@ -61,7 +61,13 @@ export const [UserProvider, useUser] = createContextHook<UserContextValue>(() =>
             }
           } catch (error) {
             console.error('[UserContext] Failed to parse stored users', error);
+            // On parse error, initialize with default users
+            setUsers(DEFAULT_USERS);
           }
+        } else {
+          // First time running the app, initialize with default users
+          setUsers(DEFAULT_USERS);
+          console.log('[UserContext] Initialized with default users');
         }
 
         if (storedCurrentUserId) {

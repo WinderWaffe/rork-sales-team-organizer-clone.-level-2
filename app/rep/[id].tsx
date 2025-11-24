@@ -37,7 +37,7 @@ export default function RepProfileScreen() {
   const [titleError, setTitleError] = useState('');
   const [expandedTodos, setExpandedTodos] = useState<Set<string>>(new Set());
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
-  const [undoDeleteTimer, setUndoDeleteTimer] = useState<NodeJS.Timeout | null>(null);
+  const [undoDeleteTimer, setUndoDeleteTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [deletedTodo, setDeletedTodo] = useState<{ todo: Todo; repId: string } | null>(null);
 
   const sortedTodos = useMemo(() => {

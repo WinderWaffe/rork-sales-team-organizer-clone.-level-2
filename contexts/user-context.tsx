@@ -58,15 +58,20 @@ export const [UserProvider, useUser] = createContextHook<UserContextValue>(() =>
             if (Array.isArray(parsedUsers)) {
               setUsers(parsedUsers);
               console.log('[UserContext] Hydrated users from storage', { count: parsedUsers.length });
+            } else {
+              // Invalid data structure, keep empty array
+              console.error('[UserContext] Invalid users data structure in storage');
+              setUsers([]);
             }
           } catch (error) {
             console.error('[UserContext] Failed to parse stored users', error);
-            // On parse error, initialize with default users
-            setUsers(DEFAULT_USERS);
+            // On parse error, keep empty array instead of resetting to defaults
+            setUsers([]);
           }
         } else {
           // First time running the app, initialize with default users
           setUsers(DEFAULT_USERS);
+          await AsyncStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(DEFAULT_USERS));
           console.log('[UserContext] Initialized with default users');
         }
 

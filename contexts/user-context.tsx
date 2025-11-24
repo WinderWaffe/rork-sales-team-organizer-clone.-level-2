@@ -1,5 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AppUser, UserRole } from '../types/user';
 
@@ -8,6 +9,9 @@ const DEFAULT_USERS: AppUser[] = [
   { id: 'leader-1', name: 'Jordan Ray', email: 'jordan@example.com', password: 'pass123', role: 'leader' },
   { id: 'leader-2', name: 'Taylor Chen', email: 'taylor@example.com', password: 'pass123', role: 'leader' },
 ];
+
+const USERS_STORAGE_KEY = 'user-context/users';
+const CURRENT_USER_ID_STORAGE_KEY = 'user-context/current-user-id';
 
 export interface UserContextValue {
   currentUser: AppUser | null;
@@ -32,6 +36,92 @@ export interface UserContextValue {
 export const [UserProvider, useUser] = createContextHook<UserContextValue>(() => {
   const [users, setUsers] = useState<AppUser[]>(DEFAULT_USERS);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const hydrate = async () => {
+      try {
+        const [storedUsersRaw, storedCurrentUserId] = await Promise.all([
+          AsyncStorage.getItem(USERS_STORAGE_KEY),
+          AsyncStorage.getItem(CURRENT_USER_ID_STORAGE_KEY),
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (storedUsersRaw) {
+          try {
+            const parsedUsers = JSON.parse(storedUsersRaw) as AppUser[];
+            if (Array.isArray(parsedUsers)) {
+              setUsers(parsedUsers);
+              console.log('[UserContext] Hydrated users from storage', { count: parsedUsers.length });
+            }
+          } catch (error) {
+            console.error('[UserContext] Failed to parse stored users', error);
+          }
+        }
+
+        if (storedCurrentUserId) {
+          setCurrentUserId(storedCurrentUserId);
+          console.log('[UserContext] Hydrated current user', { userId: storedCurrentUserId });
+        }
+      } catch (error) {
+        console.error('[UserContext] Failed to hydrate user context', error);
+      } finally {
+        if (isMounted) {
+          setIsHydrated(true);
+        }
+      }
+    };
+
+    hydrate();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    const persistUsers = async () => {
+      try {
+        await AsyncStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+        console.log('[UserContext] Persisted users', { count: users.length });
+      } catch (error) {
+        console.error('[UserContext] Failed to persist users', error);
+      }
+    };
+
+    void persistUsers();
+  }, [isHydrated, users]);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    const persistCurrentUser = async () => {
+      try {
+        if (currentUserId) {
+          await AsyncStorage.setItem(CURRENT_USER_ID_STORAGE_KEY, currentUserId);
+          console.log('[UserContext] Persisted current user', { userId: currentUserId });
+        } else {
+          await AsyncStorage.removeItem(CURRENT_USER_ID_STORAGE_KEY);
+          console.log('[UserContext] Cleared current user from storage');
+        }
+      } catch (error) {
+        console.error('[UserContext] Failed to persist current user', error);
+      }
+    };
+
+    void persistCurrentUser();
+  }, [currentUserId, isHydrated]);
 
   const currentUser = useMemo(() => {
     if (!currentUserId) return null;

@@ -5,7 +5,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppUser, UserRole } from '../types/user';
 
 const DEFAULT_USERS: AppUser[] = [
-  { id: 'admin-1', name: 'Admin', email: 'admin@example.com', password: 'admin123', role: 'admin' },
+  { id: 'admin-1', name: 'Alex Morgan', email: 'admin@example.com', password: 'admin123', role: 'admin' },
+  { id: 'leader-1', name: 'Jordan Ray', email: 'jordan@example.com', password: 'pass123', role: 'leader' },
+  { id: 'leader-2', name: 'Taylor Chen', email: 'taylor@example.com', password: 'pass123', role: 'leader' },
 ];
 
 const USERS_STORAGE_KEY = 'user-context/users';
